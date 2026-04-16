@@ -29,10 +29,9 @@ fi
 git pull -q
 
 llama_runner init-defi
-# this will work if there is already a cache, and cut down the startup time while we update the cache
-timeout 6m npx pm2 startOrReload src/api2/ecosystem.config.js
 
 if [ -n "$API_STORAGE_HOST" ]; then
+
     # Sync cache from storage box to local cache dir
     sshpass -p "$API_STORAGEBOX_PASSWORD" rsync --recursive -az \
         -e "ssh -p23 -o StrictHostKeyChecking=no" \
@@ -44,6 +43,9 @@ if [ -n "$API_STORAGE_HOST" ]; then
     # set nodejs port to 5000 and use nginx
     export PORT=5000
 else
+
+    # this will work if there is already a cache, and cut down the startup time while we update the cache
+    timeout 6m npx pm2 startOrReload src/api2/ecosystem.config.js
 
     llama_runner cron-raises
     llama_runner cron-tvl
