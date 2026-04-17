@@ -329,14 +329,14 @@ async function _getInflowRecords({ startTimestamp, endTimestamp, ids, bufferTime
   ids: string[],
   bufferTimeAfter?: number,
   bufferTimeBefore?: number,
-}): Promise<{ [id: string]:  InflowRecord}> {
+}): Promise<{ [id: string]: InflowRecord }> {
   if (!ids?.length) return {}
 
   const currentTokensTable = getTVLCacheTableNameForTimestamp(TVLRecordType.TOKEN, endTimestamp)
   const currentUsdTokensTable = getTVLCacheTableNameForTimestamp(TVLRecordType.USD_TOKEN, endTimestamp)
   const oldTokensTable = getTVLCacheTableNameForTimestamp(TVLRecordType.TOKEN, startTimestamp)
 
-  const idQuery =  ` AND id IN (${ids.map(id => `'${id}'`).join(', ')})`
+  const idQuery = ` AND id IN (${ids.map(id => `'${id}'`).join(', ')})`
   const commonSelectQueryStart = `SELECT DISTINCT ON (id) id, "data"->'tvl' as tvl , "timestamp" as date FROM `
   const commonSelectQueryEnd = `ORDER BY id, timestamp DESC`
 
@@ -351,7 +351,7 @@ async function _getInflowRecords({ startTimestamp, endTimestamp, ids, bufferTime
   const oldTokensQuery = `${commonSelectQueryStart} "${oldTokensTable.getTableName()}"
    WHERE timestamp BETWEEN '${startTimestamp - bufferTimeBefore}' AND '${startTimestamp + bufferTimeAfter}' ${idQuery}
     ${commonSelectQueryEnd}`
-  
+
   const oldUsdTokensQuery = `${commonSelectQueryStart} "${currentUsdTokensTable.getTableName()}"
    WHERE timestamp BETWEEN '${startTimestamp - bufferTimeBefore}' AND '${startTimestamp + bufferTimeAfter}' ${idQuery}
     ${commonSelectQueryEnd}`
@@ -364,7 +364,7 @@ async function _getInflowRecords({ startTimestamp, endTimestamp, ids, bufferTime
   oldUsdTokensItems.forEach((addField('oldUsdTokens')))
   currentTokensItems.forEach((addField('currentTokens')))
   currentUsdTokensItems.forEach((addField('currentUsdTokens')))
-  
+
   return response
 
   function addField(field: string) {
@@ -448,6 +448,39 @@ async function _getProtocolItems(ddbPKFunction: Function, protocolId: string, { 
   return items.map((i: any) => i.data)
 }
 
+// Incremental streaming: paginate by updatedat to catch new inserts AND updates to existing records.
+// Uses updatedat index. sinceTimestamp is unix epoch (seconds), updatedat is a PG timestamp.
+async function _streamAllItemsSince(ddbPKFunction: Function, sinceTimestamp: number, onBatch: (rows: any[]) => Promise<void>) {
+  const table = getTVLCacheTable(ddbPKFunction)
+  const tableName = table.getTableName() as string
+  const batchSize = 5000
+  let pulledCount = 0
+
+  const sinceDate = new Date(Number(sinceTimestamp) * 1000).toISOString()
+  let lastUpdatedat = sinceDate
+
+  while (true) {
+    const rows: any[] = await sequelize!.query(
+      `SELECT id, data, timestamp, updatedat FROM "${tableName}" WHERE updatedat > '${lastUpdatedat}' ORDER BY updatedat ASC LIMIT ${batchSize}`,
+      { type: QueryTypes.SELECT }
+    )
+
+    if (rows.length === 0) break
+
+    pulledCount += rows.length
+    await onBatch(rows)
+
+    const lastRow = rows[rows.length - 1] as any
+    lastUpdatedat = lastRow.updatedat instanceof Date
+      ? lastRow.updatedat.toISOString()
+      : new Date(lastRow.updatedat).toISOString()
+
+    if (rows.length < batchSize) break
+  }
+
+  log(`[tvl-cache-v2] Incremental: ${pulledCount} records from ${tableName}`)
+}
+
 const getLatestProtocolItem = callWrapper(_getLatestProtocolItem)
 const getAllProtocolItems = callWrapper(_getAllProtocolItems)
 const getClosestProtocolItem = callWrapper(_getClosestProtocolItem)
@@ -456,6 +489,7 @@ const getProtocolItems = callWrapper(_getProtocolItems)
 const getLatestProtocolItems = callWrapper(_getLatestProtocolItems)
 const getInflowRecords = callWrapper(_getInflowRecords)
 const getAllItemsAtTimeS = callWrapper(_getAllItemsAtTimeS)
+const streamAllItemsSince = callWrapper(_streamAllItemsSince)
 
 function getPGConnection() {
   return sequelize
@@ -464,7 +498,7 @@ function getPGConnection() {
 export {
   closeConnection, deleteFromPGCache, deleteProtocolItems, getAllProtocolItems,
   getClosestProtocolItem, getDailyTvlCacheId, getDimensionsUpdatedRecordsCount, getHourlyTvlUpdatedRecordsCount, getLatestProtocolItem, getLatestProtocolItems, getPGConnection, getProtocolItems, getTweetsPulledCount, initializeTVLCacheDB, readFromPGCache, saveProtocolItem, sequelize, TABLES, writeToPGCache,
-  getInflowRecords, getAllItemsAtTimeS,
+  getInflowRecords, getAllItemsAtTimeS, streamAllItemsSince,
 }
 
 // Add a process exit hook to close the database connection

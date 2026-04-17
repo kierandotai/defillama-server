@@ -8,10 +8,8 @@ import { dailyTvl, dailyUsdTokensTvl, dailyTokensTvl, hourlyTvl, hourlyUsdTokens
 import { log } from '@defillama/sdk'
 import { ChainCoinGekcoIds } from "../../utils/normalizeChain";
 import { clearOldCacheFolders, getMetadataAll, readHistoricalTVLMetadataFile, readRouteData, readTvlCacheAllFile } from './file-cache'
+import { updateAllTvlDataV2, loadAllTvlDataFromV2 } from './tvl-cache-v2'
 import { Protocol } from "../../protocols/types";
-import { shuffleArray } from "../../utils/shared/shuffleArray";
-import PromisePool from "@supercharge/promise-pool";
-import { getProtocolAllTvlData } from "../utils/cachedFunctions";
 import { getTwitterOverviewFileV2 } from "../../../dev-metrics/utils/r2";
 import { RUN_TYPE } from "../utils";
 import { updateProtocolMetadataUsingCache } from "../../protocols/data";
@@ -89,8 +87,13 @@ export async function initCache({ cacheType = RUN_TYPE.API_SERVER }: { cacheType
   console.time('Cache initialized: ' + cacheType)
   await updateMetadata()
   if (cacheType === RUN_TYPE.API_SERVER) {
-    const _cache = await readTvlCacheAllFile()
-    Object.entries(_cache).forEach(([k, v]: any) => (cache as any)[k] = v)
+    // Try loading from v2 JSONL cache first, fall back to legacy chunked cache
+    await loadAllTvlDataFromV2(cache.allTvlData)
+    if (Object.keys(cache.allTvlData).length === 0) {
+      log('[initCache] No v2 cache found, falling back to legacy cache')
+      const _cache = await readTvlCacheAllFile()
+      Object.entries(_cache).forEach(([k, v]: any) => (cache as any)[k] = v)
+    }
 
     await setHistoricalTvlForAllProtocols()
 
@@ -183,7 +186,7 @@ async function updateMetadata() {
 async function updateRaises() {
   try {
 
-    const { raises } = await readRouteData("/raises").then((res) => res.json())
+    const { raises } = await readRouteData("/raises")
     const raisesObject: any = {}
     raises.forEach((r: any) => {
       const id = r.defillamaId
@@ -203,20 +206,14 @@ async function updateAllTvlData(cacheType?: string) {
 
   // to ensure that we dont run out of disk space
   await clearOldCacheFolders()
+
   const { protocols, treasuries, entities } = cache.metadata
-  let actions = [protocols, treasuries, entities].flat()
-  shuffleArray(actions) // randomize order of execution
-  log('[All tvl] Updating', actions.length, 'protocols')
-  await PromisePool
-    .withConcurrency(13)
-    .for(actions)
-    .process(async (protocol: Protocol) => {
-      try {
-        cache.allTvlData[protocol.id] = (await getProtocolAllTvlData(protocol, false))[0]
-      } catch (e) {
-        console.error(e);
-      }
-    });
+  const allProtocols = [protocols, treasuries, entities].flat()
+  log('[All tvl] Updating via tvl-cache-v2,', allProtocols.length, 'protocols')
+  await updateAllTvlDataV2(allProtocols)
+
+  // Populate cache.allTvlData from the v2 JSONL files
+  await loadAllTvlDataFromV2(cache.allTvlData)
 }
 
 export function getProtocols() {

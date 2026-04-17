@@ -49,28 +49,41 @@ export const Tables = {
 }
 
 export function initializeTables(sequelize: Sequelize) {
-  const getTableOptions = (tableName: string) => ({
-    sequelize,
-    timestamps: true,
-    createdAt: 'createdat',
-    updatedAt: 'updatedat',
-    tableName,
-    indexes: [
+  const getTableOptions = (tableName: string, { indexUpdatedat = false } = {}) => {
+    const indexes: any[] = [
       {
-        name: tableName + '_id_index', // Name of the index for the 'id' field
+        name: tableName + '_id_index',
         fields: ['id'],
       },
       {
-        name: tableName + '_timestamp_index', // Name of the index for the 'timestamp' field
+        name: tableName + '_timestamp_index',
         fields: ['timestamp'],
       },
     ]
-  })
+    if (indexUpdatedat) {
+      indexes.push({
+        name: tableName + '_updatedat_index',
+        fields: ['updatedat'],
+      })
+      indexes.push({
+        name: tableName + '_times_index',
+        fields: ['timeS'],
+      })
+    }
+    return {
+      sequelize,
+      timestamps: true,
+      createdAt: 'createdat',
+      updatedAt: 'updatedat',
+      tableName,
+      indexes,
+    }
+  }
 
-  DAILY_TVL.init(defaultDataColumns, getTableOptions('dailyTvl'))
-  DAILY_TOKENS_TVL.init(defaultDataColumns, getTableOptions('dailyTokensTvl'))
-  DAILY_USD_TOKENS_TVL.init(defaultDataColumns, getTableOptions('dailyUsdTokensTvl'))
-  DAILY_RAW_TOKENS_TVL.init(defaultDataColumns, getTableOptions('dailyRawTokensTvl'))
+  DAILY_TVL.init(defaultDataColumns, getTableOptions('dailyTvl', { indexUpdatedat: true }))
+  DAILY_TOKENS_TVL.init(defaultDataColumns, getTableOptions('dailyTokensTvl', { indexUpdatedat: true }))
+  DAILY_USD_TOKENS_TVL.init(defaultDataColumns, getTableOptions('dailyUsdTokensTvl', { indexUpdatedat: true }))
+  DAILY_RAW_TOKENS_TVL.init(defaultDataColumns, getTableOptions('dailyRawTokensTvl', { indexUpdatedat: true }))
   HOURLY_TVL.init(defaultDataColumns, getTableOptions('hourlyTvl'))
   HOURLY_TOKENS_TVL.init(defaultDataColumns, getTableOptions('hourlyTokensTvl'))
   HOURLY_USD_TOKENS_TVL.init(defaultDataColumns, getTableOptions('hourlyUsdTokensTvl'))
