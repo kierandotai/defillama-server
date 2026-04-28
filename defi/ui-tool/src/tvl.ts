@@ -7,7 +7,7 @@ import { storeTvl2, storeTvl2Options } from '../../src/storeTvlInterval/getAndSt
 import { humanizeNumber } from '@defillama/sdk';
 import evmChainProvidersList from '@defillama/sdk/build/providers.json';
 import PromisePool from '@supercharge/promise-pool';
-import { deleteProtocolItems, getProtocolItems, initializeTVLCacheDB } from '../../src/api2/db';
+import { getProtocolItems, initializeTVLCacheDB, saveProtocolItem } from '../../src/api2/db';
 import dynamodb from '../../src/utils/shared/dynamodb';
 import { dailyTokensTvl, dailyTvl, dailyUsdTokensTvl, dailyRawTokensTvl, } from '../../src/utils/getLastRecord';
 import { importAdapterDynamic } from '../../src/utils/imports/importAdapter';
@@ -446,36 +446,41 @@ async function _deleteTvlRecords(ws: any, ids?: any) {
       const deleteFrom = unixTimestamp - 1 // -1 to include the from date
       const deleteTo = unixTimestamp + 1 // +1 to include the to date
 
-      for (const tvlFunc of [dailyUsdTokensTvl, dailyTokensTvl, dailyTvl,
-        // hourlyTvl, // - we retain hourly in case we want to refill using it for some reason
-        // hourlyTokensTvl, hourlyUsdTokensTvl, hourlyTvl
-      ]) {
+      // Soft-delete: write a tombstone marker into data so api2 cache picks it up and removes locally.
+      // tvl table → deleted: 0, tokens/usdTokens → deleted: {}
+      const softDeleteSpecs: Array<{ ddbPK: Function, marker: any }> = [
+        { ddbPK: dailyTvl, marker: 0 },
+        { ddbPK: dailyUsdTokensTvl, marker: {} },
+        { ddbPK: dailyTokensTvl, marker: {} },
+      ]
 
+      for (const { ddbPK, marker } of softDeleteSpecs) {
         try {
+          await saveProtocolItem(ddbPK, {
+            id: protocol.id,
+            timestamp: unixTimestamp,
+            data: { deleted: marker },
+          }, { overwriteExistingData: true })
 
-          await deleteProtocolItems(tvlFunc, { id: protocol.id, timestamp: unixTimestamp })
-          console.log('Deleting data for protocol:', protocol.name, 'from:', new Date(deleteFrom * 1000).toDateString(), deleteFrom, 'to:', new Date(deleteTo * 1000).toDateString(), deleteTo, tvlFunc(protocol.id))
-          const data = await dynamodb.query({
+          console.log('Soft-deleting data for protocol:', protocol.name, 'at:', new Date(unixTimestamp * 1000).toDateString(), unixTimestamp, ddbPK(protocol.id))
+
+          const ddbData = await dynamodb.query({
             ExpressionAttributeValues: {
-              ":pk": tvlFunc(protocol.id),
+              ":pk": ddbPK(protocol.id),
               ":from": deleteFrom,
               ":to": deleteTo,
             },
             KeyConditionExpression: "PK = :pk AND SK BETWEEN :from AND :to",
           });
 
-          const items = data.Items ?? []
+          const items = ddbData.Items ?? []
           for (const d of items) {
             await dynamodb.delete({
-              Key: {
-                PK: d.PK,
-                SK: d.SK,
-              },
+              Key: { PK: d.PK, SK: d.SK },
             });
           }
-
         } catch (e) {
-          console.error('Error deleting tvl data for protocol:', protocol.name, 'from:', new Date(deleteFrom * 1000).toDateString(), 'to:', new Date(deleteTo * 1000).toDateString(), e);
+          console.error('Error soft-deleting tvl data for protocol:', protocol.name, 'at:', new Date(unixTimestamp * 1000).toDateString(), e);
           console.error((e as any)?.message || e);
           throw e;
         }

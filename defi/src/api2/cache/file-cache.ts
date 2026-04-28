@@ -212,8 +212,13 @@ export async function readTvlCacheAllFile() {
     const key = `${PG_CACHE_KEYS.CACHE_DATA_ALL}-tvlChunk-${i}`
     const chunk = await readFromPGCache(key)
     if (chunk) {
-      for (const [id, data] of chunk)
-        allTvlData[id] = data
+      for (const [id, data] of chunk) {
+        // Drop soft-deleted tombstones (kept in sync with v2 cache behavior)
+        const filtered = Array.isArray(data)
+          ? data.filter((r: any) => !(r && typeof r === 'object' && 'deleted' in r))
+          : data
+        allTvlData[id] = filtered
+      }
     }
   }
 
