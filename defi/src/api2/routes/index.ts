@@ -81,6 +81,7 @@ export default function setRoutes(router: HyperExpress.Router, routerBasePath: s
   router.get("/cexs", (_: any, res: HyperExpress.Response) => fileResponse('cex_agg', res));
 
 
+  router.post("/inflows/batch", ew(getBatchInflows))
   router.get("/inflows/:protocol/:timestamp", ew(getInflows))
   router.get("/lite/protocols2", defaultFileHandler);
   router.get("/lite/v2/protocols", defaultFileHandler);
@@ -457,6 +458,8 @@ type R2DataOptions = {
   res?: HyperExpress.Response;
 }
 
+const MAX_BATCH_INFLOW_PROTOCOLS = 100
+
 async function returnR2Data({ endpoint, parseJson = true, errorMessage, cacheMinutes = 30, res }: R2DataOptions) {
   try {
     const response = await getR2(endpoint);
@@ -469,6 +472,67 @@ async function returnR2Data({ endpoint, parseJson = true, errorMessage, cacheMin
   } catch (e) {
     return errorResponse(res!, errorMessage ?? 'no data')
   }
+}
+
+async function getBatchInflows(req: HyperExpress.Request, res: HyperExpress.Response) {
+  const rawBody = req.body ?? (await req.text());
+  let body: any;
+  try {
+    body = typeof rawBody === "string" ? JSON.parse(rawBody) : rawBody
+  } catch {
+    return errorResponse(res, "Invalid JSON body")
+  }
+
+  const startTimestamp = Number(body?.startTimestamp);
+  const endTimestamp = body?.endTimestamp == null ? undefined : Number(body.endTimestamp);
+  const protocols = body?.protocols;
+
+  if (!Number.isFinite(startTimestamp)) return errorResponse(res, "Invalid startTimestamp")
+  if (endTimestamp !== undefined && !Number.isFinite(endTimestamp)) return errorResponse(res, "Invalid endTimestamp")
+  if (!Array.isArray(protocols) || protocols.length === 0) return errorResponse(res, "No protocols provided")
+  if (protocols.length > MAX_BATCH_INFLOW_PROTOCOLS)
+    return errorResponse(res, `Too many protocols, max ${MAX_BATCH_INFLOW_PROTOCOLS}`, { statusCode: 413 })
+
+  const ids: { id: string; tokensToExclude: string[] }[] = [];
+  const protocolById: { [id: string]: string } = {};
+  const seenProtocolIds = new Set<string>();
+
+  for (const item of protocols) {
+    if (!item || typeof item.protocol !== "string" || item.protocol.length === 0)
+      return errorResponse(res, "Invalid protocol item")
+
+    const name = sluggify({ name: item.protocol } as any);
+    const protocolData = cache.protocolSlugMap[name];
+    if (!protocolData) continue;
+
+    if (seenProtocolIds.has(protocolData.id))
+      return errorResponse(res, `Duplicate protocol: ${item.protocol}`)
+    seenProtocolIds.add(protocolData.id)
+
+    let tokensToExclude: string[] = [];
+    if (Array.isArray(item.tokensToExclude)) {
+      tokensToExclude = item.tokensToExclude.filter((token: unknown): token is string => typeof token === "string");
+    } else if (typeof item.tokensToExclude === "string" && item.tokensToExclude) {
+      tokensToExclude = item.tokensToExclude.split(",");
+    }
+
+    ids.push({ id: protocolData.id, tokensToExclude });
+    protocolById[protocolData.id] = item.protocol;
+  }
+
+  const inflows = await pgGetInflows({
+    ids,
+    startTimestamp,
+    endTimestamp,
+  })
+
+  const response: { [protocol: string]: any } = {};
+  for (const id in inflows) {
+    const protocol = protocolById[id];
+    if (protocol) response[protocol] = inflows[id];
+  }
+
+  return successResponse(res, response, 60);
 }
 
 function r2Wrapper({ endpoint, parseJson, errorMessage, cacheMinutes, }: R2DataOptions) {

@@ -27,8 +27,8 @@ importers:
         specifier: ^3.918.0
         version: 3.918.0(@aws-sdk/client-dynamodb@3.918.0)
       '@defillama/sdk':
-        specifier: ^5.0.211
-        version: 5.0.211(bufferutil@4.0.9)(typescript@5.9.3)(utf-8-validate@5.0.10)(zod@4.1.12)
+        specifier: ^5.0.212
+        version: 5.0.212(bufferutil@4.0.9)(typescript@5.9.3)(utf-8-validate@5.0.10)(zod@4.1.12)
       '@elastic/elasticsearch':
         specifier: ^8.13.1
         version: 8.19.1
@@ -1099,8 +1099,8 @@ packages:
     resolution: {integrity: sha512-IchNf6dN4tHoMFIn/7OE8LWZ19Y6q/67Bmf6vnGREv8RSbBVb9LPJxEcnwrcwX6ixSvaiGoomAUvu4YSxXrVgw==}
     engines: {node: '>=12'}
 
-  '@defillama/sdk@5.0.211':
-    resolution: {integrity: sha512-o4C8hPaRrNLEX31idd9O0GtXPvQYAyUR+n+g5gHd6F73705zInatbrLOJ0ZTaJ5AwwqMx9CXbdi6qKnrc5hVbA==}
+  '@defillama/sdk@5.0.212':
+    resolution: {integrity: sha512-F+1saaDf3LawaXcoavp6vQf5IgMj2HLpZxoGpBwGlsGGq6nM+lhCUCujhHMLnvR3VBnSYJpZK7GxbIMCsN9ziw==}
 
   '@effect/platform-node-shared@0.15.5':
     resolution: {integrity: sha512-PXFdIHMNzv19+aaKBo99KVsqJ65il8j7ejze/srkzOkNu4WK/GGpQuYF32NZLirFgXJe/4aYMRgwD+uJ4mCyuw==}
@@ -1122,7 +1122,6 @@ packages:
 
   '@effect/schema@0.73.4':
     resolution: {integrity: sha512-Vjgu+EuG6eyh3oB21jpHv0l9ZgGZCyVZf3lXs+2X18UEUOkppvpw11heHiK02iJCVchgp3Qjw/GDPUqhQvKpSg==}
-    deprecated: this package has been merged into the main effect package
     peerDependencies:
       effect: ^3.8.3
 
@@ -2092,12 +2091,10 @@ packages:
   abstract-leveldown@6.2.3:
     resolution: {integrity: sha512-BsLm5vFMRUrrLeCcRc+G0t2qOaTzpoJQLOubq2XM72eNpjF5UdU5o/5NvlNhx95XHcAvcl8OMXr4mlg/fRgUXQ==}
     engines: {node: '>=6'}
-    deprecated: Superseded by abstract-level (https://github.com/Level/community#faq)
 
   abstract-leveldown@6.3.0:
     resolution: {integrity: sha512-TU5nlYgta8YrBMNpc9FwQzRbiXsj49gsALsXadbGHt9CROPzX5fB0rWDR5mtdpOOKa5XqRFpbj1QroPAoPzVjQ==}
     engines: {node: '>=6'}
-    deprecated: Superseded by abstract-level (https://github.com/Level/community#faq)
 
   acorn-import-phases@1.0.4:
     resolution: {integrity: sha512-wKmbr/DDiIXzEOiWrTTUcDm24kQ2vGfZQvM2fwg2vXqR5uW6aapr7ObPtj1th32b9u90/Pf4AItvdTh42fBmVQ==}
@@ -2868,7 +2865,6 @@ packages:
   deferred-leveldown@5.3.0:
     resolution: {integrity: sha512-a59VOT+oDy7vtAbLRCZwWgxu2BaCfd5Hk7wxJd48ei7I+nsg8Orlb9CLG0PMZienk9BSUKgeAqkO2+Lw+1+Ukw==}
     engines: {node: '>=6'}
-    deprecated: Superseded by abstract-level (https://github.com/Level/community#faq)
 
   deferred@0.7.11:
     resolution: {integrity: sha512-8eluCl/Blx4YOGwMapBvXRKxHXhA8ejDXYzEaK8+/gtcm8hRMhSLmXSqDmNUKNc/C8HNSmuyyp/hflhqDAvK2A==}
@@ -2979,7 +2975,6 @@ packages:
   encoding-down@6.3.0:
     resolution: {integrity: sha512-QKrV0iKR6MZVJV08QY0wp1e7vF6QbhnbQhb07bwpEyuz4uZiZgPlEGdkCROuFkUwdxlFaiPIhjyarH1ee/3vhw==}
     engines: {node: '>=6'}
-    deprecated: Superseded by abstract-level (https://github.com/Level/community#faq)
 
   end-of-stream@1.4.5:
     resolution: {integrity: sha512-ooEGc6HP26xXq/N+GCGOT0JKCLDGrq2bQUZrQ7gyrJiZANJ/8YDTxTpQBXGMn+WbIQXNVpyWymm7KYVICQnyOg==}
@@ -3568,7 +3563,6 @@ packages:
 
   glob@7.2.3:
     resolution: {integrity: sha512-nFR0zLpU2YCaRxwoCJvL6UvCH2JFyFVIvwTLsIf21AuHlMskA1hhTdk+LlYJtOlYt9v6dvszD2BGRqBL+iQK9Q==}
-    deprecated: Glob versions prior to v9 are no longer supported
 
   globalthis@1.0.4:
     resolution: {integrity: sha512-DpLKbNU4WylpxJykQujfCcwYWiV/Jhm50Goo0wrVILAv5jOr9d+H+UR3PhSCD2rCCEIg0uc+G+muBTwD54JhDQ==}
@@ -3714,7 +3708,6 @@ packages:
 
   inflight@1.0.6:
     resolution: {integrity: sha512-k92I/b08q4wvFscXCLvqfsHCrjrF7yiXsQuIVvVE7N82W3+aqpzuUdBbfhWcy/FZR3/4IgflMgKLOsvPDrGCJA==}
-    deprecated: This module is not supported, and leaks memory. Do not use it. Check out lru-cache if you want a good and tested way to coalesce async requests by a key value, which is much more comprehensive and powerful.
 
   inherits@2.0.4:
     resolution: {integrity: sha512-k/vGaX4/Yla3WzyMCvTQOXYeIHvqOKtnqBduzTHpzpQZzAskKMhZ2K+EnBiSM9zGSoIFeMpXKxa4dYeZIQqewQ==}
@@ -4237,17 +4230,14 @@ packages:
   level-codec@9.0.2:
     resolution: {integrity: sha512-UyIwNb1lJBChJnGfjmO0OR+ezh2iVu1Kas3nvBS/BzGnx79dv6g7unpKIDNPMhfdTEGoc7mC8uAu51XEtX+FHQ==}
     engines: {node: '>=6'}
-    deprecated: Superseded by level-transcoder (https://github.com/Level/community#faq)
 
   level-concat-iterator@2.0.1:
     resolution: {integrity: sha512-OTKKOqeav2QWcERMJR7IS9CUo1sHnke2C0gkSmcR7QuEtFNLLzHQAvnMw8ykvEcv0Qtkg0p7FOwP1v9e5Smdcw==}
     engines: {node: '>=6'}
-    deprecated: Superseded by abstract-level (https://github.com/Level/community#faq)
 
   level-errors@2.0.1:
     resolution: {integrity: sha512-UVprBJXite4gPS+3VznfgDSU8PTRuVX0NXwoWW50KLxd2yw4Y1t2JUR5In1itQnudZqRMT9DlAM3Q//9NCjCFw==}
     engines: {node: '>=6'}
-    deprecated: Superseded by abstract-level (https://github.com/Level/community#faq)
 
   level-iterator-stream@4.0.2:
     resolution: {integrity: sha512-ZSthfEqzGSOMWoUGhTXdX9jv26d32XJuHz/5YnuHZzH6wldfWMOVwI9TBtKcya4BKTyTt3XVA0A3cF3q5CY30Q==}
@@ -4268,7 +4258,6 @@ packages:
   levelup@4.4.0:
     resolution: {integrity: sha512-94++VFO3qN95cM/d6eBXvd894oJE0w3cInq9USsyQzzoJxmiYzPAocNcuGCPGGjoXqDVJcr3C1jzt1TSjyaiLQ==}
     engines: {node: '>=6'}
-    deprecated: Superseded by abstract-level (https://github.com/Level/community#faq)
 
   leven@3.1.0:
     resolution: {integrity: sha512-qsda+H8jTaUaN/x5vzW2rzc+8Rw4TAQ/4KjB46IwK5VH+IlVeeeje/EoZRpiXvIqjFgK84QffqPztGI3VBLG1A==}
@@ -4312,7 +4301,6 @@ packages:
 
   lodash.get@4.4.2:
     resolution: {integrity: sha512-z+Uw/vLuy6gQe8cfaFWD7p0wVv8fJl3mbzXh33RS+0oW2wvUqiRXiQ69gLWSLpgB5/6sU+r6BlQR0MBILadqTQ==}
-    deprecated: This package is deprecated. Use the optional chaining (?.) operator instead.
 
   lodash.isplainobject@4.0.6:
     resolution: {integrity: sha512-oSXzaWypCMHkPC3NvBEaPHf0KsA5mvPrOPgQWDsbg8n7orZ290M0BmC/jgRZ4vcJ6DTAhjrsSYgdsW/F+MFOBA==}
@@ -4400,7 +4388,6 @@ packages:
   memdown@5.1.0:
     resolution: {integrity: sha512-B3J+UizMRAlEArDjWHTMmadet+UKwHd3UjMgGBkZcKAxAYVPS9o0Yeiha4qvz7iGiL2Sb3igUft6p7nbFWctpw==}
     engines: {node: '>=6'}
-    deprecated: Superseded by memory-level (https://github.com/Level/community#faq)
 
   memoizee@0.4.17:
     resolution: {integrity: sha512-DGqD7Hjpi/1or4F/aYAspXKNm5Yili0QDAFAY4QYvpqpgiY6+1jOfqpmByzjxbWd/T9mChbCArXAbDAsTm5oXA==}
@@ -4982,12 +4969,10 @@ packages:
   querystring@0.2.0:
     resolution: {integrity: sha512-X/xY82scca2tau62i9mDyU9K+I+djTMUsvwf7xnUX5GLvVzgJybOJf4Y6o9Zx3oJK/LSXg5tTZBjwzqVPaPO2g==}
     engines: {node: '>=0.4.x'}
-    deprecated: The querystring API is considered Legacy. new code should use the URLSearchParams API instead.
 
   querystring@0.2.1:
     resolution: {integrity: sha512-wkvS7mL/JMugcup3/rMitHmd9ecIGd2lhFhK9N3UUQ450h66d1r3Y9nvXzQAW1Lq+wyx61k/1pfKS5KuKiyEbg==}
     engines: {node: '>=0.4.x'}
-    deprecated: The querystring API is considered Legacy. new code should use the URLSearchParams API instead.
 
   queue-microtask@1.2.3:
     resolution: {integrity: sha512-NuaNSa6flKT5JaSYQzJok04JzTL1CA6aGhv5rfLW3PgqA+M2ChpZQnAC8h8i4ZFkBS8X5RqkDBHA7r4hej3K9A==}
@@ -5505,12 +5490,10 @@ packages:
   subleveldown@5.0.1:
     resolution: {integrity: sha512-cVqd/URpp7si1HWu5YqQ3vqQkjuolAwHypY1B4itPlS71/lsf6TQPZ2Y0ijT22EYVkvH5ove9JFJf4u7VGPuZw==}
     engines: {node: '>=6'}
-    deprecated: Superseded by abstract-level (https://github.com/Level/community#faq)
 
   superagent@7.1.6:
     resolution: {integrity: sha512-gZkVCQR1gy/oUXr+kxJMLDjla434KmSOKbx5iGD30Ql+AkJQ/YlPKECJy2nhqOsHLjGHzoDTXNSjhnvWhzKk7g==}
     engines: {node: '>=6.4.0 <13 || >=14'}
-    deprecated: Please upgrade to superagent v10.2.2+, see release notes at https://github.com/forwardemail/superagent/releases/tag/v10.2.2 - maintenance is supported by Forward Email @ https://forwardemail.net
 
   superstruct@2.0.2:
     resolution: {integrity: sha512-uV+TFRZdXsqXTL2pRvujROjdZQ4RAlBUS5BTh9IGm+jTqQntYThciG/qu57Gs69yjnVUSqdxF9YLmSnpupBW9A==}
@@ -5955,8 +5938,8 @@ packages:
   webidl-conversions@3.0.1:
     resolution: {integrity: sha512-2JAn3z8AR6rjK8Sm8orRC0h/bcl/DqL7tRPdGZ4I1CjdF+EaMLmYxBHyXuKL849eucPFhvBoxMsflfOb8kxaeQ==}
 
-  webpack-sources@3.4.0:
-    resolution: {integrity: sha512-gHwIe1cgBvvfLeu1Yz/dcFpmHfKDVxxyqI+kzqmuxZED81z2ChxpyqPaWcNqigPywhaEke7AjSGga+kxY55gjQ==}
+  webpack-sources@3.4.1:
+    resolution: {integrity: sha512-eACpxRN02yaawnt+uUNIF7Qje6A9zArxBbcAJjK1PK3S9Ycg5jIuJ8pW4q8EMnwNZCEGltcjkRx1QzOxOkKD8A==}
     engines: {node: '>=10.13.0'}
 
   webpack@5.102.1:
@@ -8103,7 +8086,7 @@ snapshots:
     dependencies:
       '@jridgewell/trace-mapping': 0.3.9
 
-  '@defillama/sdk@5.0.211(bufferutil@4.0.9)(typescript@5.9.3)(utf-8-validate@5.0.10)(zod@4.1.12)':
+  '@defillama/sdk@5.0.212(bufferutil@4.0.9)(typescript@5.9.3)(utf-8-validate@5.0.10)(zod@4.1.12)':
     dependencies:
       '@aws-sdk/client-s3': 3.913.0
       '@elastic/elasticsearch': 8.19.1
@@ -14009,7 +13992,7 @@ snapshots:
 
   webidl-conversions@3.0.1: {}
 
-  webpack-sources@3.4.0: {}
+  webpack-sources@3.4.1: {}
 
   webpack@5.102.1(esbuild@0.14.54):
     dependencies:
@@ -14037,7 +14020,7 @@ snapshots:
       tapable: 2.3.3
       terser-webpack-plugin: 5.5.0(esbuild@0.14.54)(webpack@5.102.1(esbuild@0.14.54))
       watchpack: 2.5.1
-      webpack-sources: 3.4.0
+      webpack-sources: 3.4.1
     transitivePeerDependencies:
       - '@swc/core'
       - esbuild

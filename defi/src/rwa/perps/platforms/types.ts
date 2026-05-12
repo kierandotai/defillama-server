@@ -30,8 +30,11 @@ export interface ParsedPerpsMarket {
   fundingRate: number;
   /** Premium over index (0 if not applicable) */
   premium: number;
-  /** Maximum leverage offered */
-  maxLeverage: number;
+  /** Maximum leverage offered. `null` when the venue does not expose this on a
+   *  public, unauthenticated endpoint (e.g. Aster's `/leverageBracket` is auth-
+   *  gated). Existing adapters return `0` as a "missing" sentinel; new adapters
+   *  should prefer `null` so absence is distinguishable from a zero value. */
+  maxLeverage: number | null;
   /** Size decimals (0 if not applicable) */
   szDecimals: number;
 }

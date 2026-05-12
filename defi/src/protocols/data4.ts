@@ -7312,7 +7312,7 @@ const data4: Protocol[] = [
     symbol: "-",
     assetToken: "ftOM",
     url: "https://fluxtra.xyz/",
-    description: "The pioneer Liquid Staking Protocol on Mantra. Stake OM to receive ftOM",
+    description: "The pioneer Liquid Staking Protocol on Mantra. Stake MANTRA to receive stMANTRA",
     chain: "Mantra",
     logo: `${baseIconsUrl}/fluxtra.jpg`,
     audits: "0",
@@ -7794,28 +7794,19 @@ const data4: Protocol[] = [
     module: "usdd-io/index.js",
     twitter: "usddio",
     oraclesBreakdown: [
-      {
-        name: "WINkLink",
-        type: "Primary",
-        proof: [
-          "https://juststable.tronscan.org/?lang=en-US#/home",
-          "https://x.com/justinsuntron/status/1851885789116039226",
-        ],
+      {name: "WINkLink",type: "Primary",proof: ["https://juststable.tronscan.org/?lang=en-US#/home","https://x.com/justinsuntron/status/1851885789116039226",],
         endDate: "2025-05-15",
       },
-      {
-        name: "Chainlink",
-        type: "Primary",
-        proof: [
-          "https://docs.usdd.io/developers/oraclehome",
-          "https://x.com/justinsuntron/status/1851885789116039226",
-          "https://docs.usdd.io/developers/oracle",
-        ],
-        startDate: "2025-05-15",
-      },
+      { name: "Chainlink",type: "Primary",
+      proof: ["https://docs.usdd.io/developers/oraclehome", "https://x.com/justinsuntron/status/1851885789116039226", "https://docs.usdd.io/developers/oracle"],
+      startDate: "2025-05-15",
+    },
     ],
     listedAt: 1741877201,
     stablecoins: ["usdd"],
+    dimensions: {
+      fees: "usdd"
+    }
   },
   {
     id: "5899",
@@ -10718,6 +10709,9 @@ const data4: Protocol[] = [
     twitter: "Main_St_Finance",
     stablecoins: ["main-street-usd"],
     listedAt: 1744280825,
+    dimensions: {
+      fees: "mainstreet"
+    }
   },
   {
     id: "6023",
@@ -12897,6 +12891,9 @@ const data4: Protocol[] = [
     twitter: null,
     parentProtocol: "parent#blend",
     listedAt: 1746030811,
+    dimensions: {
+      fees: "blend-backstop-v2",
+    }
   },
   {
     id: "6122",
@@ -12927,6 +12924,9 @@ const data4: Protocol[] = [
         ],
       },
     ],
+    dimensions: {
+      fees: "blend-pools-v2",
+    }
   },
   {
     id: "6123",
@@ -20795,6 +20795,9 @@ const data4: Protocol[] = [
     audit_links: ["https://docs.stakedhype.fi/technical/audits"],
     parentProtocol: "parent#valantis",
     listedAt: 1753110072,
+    dimensions: {
+      fees: "staked-hype",
+    },
     hallmarks: [
       [1755561600,"Valantis acquired stakedhype"],
     ],
@@ -25726,7 +25729,8 @@ const data4: Protocol[] = [
     module: "dummy.js",
     twitter: "Collector_Crypt",
     dimensions: {
-      fees: "collector-crypt"
+      fees: "collector-crypt",
+      dexs: "collector-crypt"
     }
   },
   {
@@ -25932,7 +25936,8 @@ const data4: Protocol[] = [
     module: "dummy.js",
     twitter: "phygitals",
     dimensions: {
-      fees: "phygitals"
+      fees: "phygitals",
+      dexs: "phygitals"
     }
   },
   {
@@ -26543,7 +26548,10 @@ const data4: Protocol[] = [
     module: "HLScope/index.js",
     twitter: "securitize",
     parentProtocol: "parent#securitize",
-    listedAt: 1757615928
+    listedAt: 1757615928,
+    dimensions: {
+      fees: "hlscope",
+    },
   },
   {
     id: "6713",
@@ -26956,6 +26964,11 @@ const data4: Protocol[] = [
     chains: ["Solana"],
     module: "dummy.js",
     twitter: "LABtrade_",
+    warningBanners: [
+      {
+        message: "Community members have raised concerns about this protocol activity and token distribution. Be carefully. https://x.com/SpecterAnalyst/status/2052334885776368019",
+        level: "alert",
+      }],
     dimensions: {
       fees: "lab-terminal"
     }
@@ -27165,7 +27178,8 @@ const data4: Protocol[] = [
     module: "dummy.js",
     twitter: "TCG_Emporium",
     dimensions: {
-      fees: "emporium"
+      fees: "emporium",
+      dexs: "emporium"
     }
   },
   {
@@ -27648,7 +27662,8 @@ const data4: Protocol[] = [
     module: "dummy.js",
     twitter: "Courtyard_io",
     dimensions: {
-      fees: "courtyard"
+      fees: "courtyard",
+      dexs: "courtyard"
     }
   },
   {
@@ -28292,7 +28307,7 @@ const data4: Protocol[] = [
   },
   {
     id: "6794",
-    name: "Tigris Mezo",
+    name: "Tigris Mezo V2",
     address: null,
     symbol: "-",
     url: "https://mezo.org/explore/pools",
@@ -28306,6 +28321,7 @@ const data4: Protocol[] = [
     chains: ["Mezo"],
     module: "mezo-tigris/index.js",
     twitter: "MezoNetwork",
+    parentProtocol: "parent#mezo-swap",
     listedAt: 1759338887
   },
   {

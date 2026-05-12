@@ -177,6 +177,9 @@ export const chainCoingeckoIds = {
     twitter: "Stacks",
     categories: ["Bitcoin Sidechains"],
     url: "https://www.stacks.co/",
+    dimensions: {
+      fees: "stacks",
+    },
   },
   "PolyNetwork": {
     geckoId: null,
@@ -1929,6 +1932,7 @@ export const chainCoingeckoIds = {
     url: "https://aptosfoundation.org/",
     dimensions: {
       fees: "aptos",
+      "active-users": "aptos",
     },
   },
   "Kekchain": {
@@ -2318,6 +2322,7 @@ export const chainCoingeckoIds = {
     url: "https://sui.io/",
     dimensions: {
       fees: "sui",
+      "active-users": "sui",
     },
   },
   "Grove": {
@@ -5989,6 +5994,18 @@ export const chainCoingeckoIds = {
     cmcId: null,
     twitter: "risechain",
     url: "https://risechain.com/",
+    dimensions: {
+      fees: "rise",
+    },
+  },
+  "Etica": {
+    geckoId: null,
+    symbol: "EGAZ",
+    cmcId: null,
+    twitter: "eticaprotocol",
+    url: "https://www.eticaprotocol.org/",
+    categories: ["EVM"],
+    chainId: 61803,
   },
 } as unknown as ChainCoinGekcoIds;
 

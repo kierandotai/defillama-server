@@ -6582,6 +6582,11 @@
       "to": "coingecko#bitcoin",
       "decimals": 9,
       "symbol": "jBTC"
+    },
+    "EQAIb6KmdfdDR7CN1GBqVJuP25iCnLKCvBlJ07Evuu2dzP5f": {
+      "to": "coingecko#ethena-usde",
+      "decimals": 6,
+      "symbol": " USDe"
     }
   },
   "mantle": {
@@ -9952,6 +9957,18 @@
       "to": "coingecko#genesys"
     }
   },
+  "etica": {
+    "0x0000000000000000000000000000000000000000": {
+      "decimals": "18",
+      "symbol": "ETH",
+      "to": "coingecko#etica"
+    },
+    "0x232fb2B87CAce92B2438054A7eB79B4081E3E11a": {
+      "decimals": "18",
+      "symbol": "WEGAZ",
+      "to": "coingecko#etica"
+    }
+  },
   "bob": {
     "0xA45d4121b3D47719FF57a947A9d961539Ba33204": {
       "decimals": "8",
@@ -12269,7 +12286,7 @@
     },
     "0x0000000000000000000000000000000000000000": {
       "to": "coingecko#hedera-hashgraph",
-      "decimals": 18,
+      "decimals": 8,
       "symbol": "HBAR"
     },
     "0x0000000000000000000000000000000000163b5a": {
@@ -14183,6 +14200,11 @@
       "to": "coingecko#movement",
       "decimals": 18,
       "symbol": "MOVE"
+    },
+    "0xba11833544a2f99eec743f41a228ca6ffa7f13c3b6b04681d5a79a8b75ff225e": {
+      "to": "coingecko#usdcx-movement",
+      "decimals": 6,
+      "symbol": "USDCx"
     }
   },
   "mtt_network": {

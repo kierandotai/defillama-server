@@ -8428,6 +8428,7 @@ const data5: Protocol[] = [
     chains: ["Mezo"],
     module: "mezo-borrow/index.js",
     twitter: "MezoNetwork",
+    parentProtocol: "parent#mezo-swap",
     listedAt: 1768928801
   },
   {
@@ -10037,7 +10038,10 @@ const data5: Protocol[] = [
     module: "sierra-money/index.js",
     twitter: "SierraIsMoney",
     audit_links: ["https://cantina.xyz/portfolio/967eeb2b-b6f6-4b17-b819-9bfb450876ca"],
-    listedAt: 1770100267
+    listedAt: 1770100267,
+    dimensions: {
+      fees: "sierra",
+    },
   },
   {
     id: "7346",
@@ -10999,6 +11003,9 @@ const data5: Protocol[] = [
     audit_links: ["https://docs.afiprotocol.xyz/risks/audits-and-bug-bounty"],
     github: ["Artificial-Financial-Intelligence"],
     listedAt: 1771028551,
+    dimensions: {
+      fees: "afiprotocol"
+    },
   },
   {
     id: "7392",
@@ -11125,7 +11132,10 @@ const data5: Protocol[] = [
     twitter: "ENI__Official",
     listedAt: 1771517342,
     dimensions: {
-      dexs: "egas-swap",
+      dexs: {
+        adapter: "egas-swap",
+        genuineSpikes: [["2026-05-09", "-"]]
+      },
     },
   },
   {
@@ -14062,6 +14072,9 @@ const data5: Protocol[] = [
       "https://1739587685-files.gitbook.io/~/files/v0/b/gitbook-x-prod.appspot.com/o/spaces%2FiSGHwFKn3P0OZY7c7ITh%2Fuploads%2FCHW9zrkYycSoPABMSaSk%2FSalus_Bitway_Token_Audit_Report.pdf?alt=media&token=11c93464-625d-4282-9cd0-478715ad7108"
     ],
     listedAt: 1773325947,
+    dimensions: {
+      fees: "bitway-earn",
+    }
   },
   {
     id: "7540",
@@ -15643,6 +15656,9 @@ const data5: Protocol[] = [
     chains: ["Ethereum"],
     module: "dummy.js",
     twitter: "layer3",
+    dimensions: {
+      fees: "layer3",
+    },
   },
   {
     id: "7612",
@@ -15784,7 +15800,8 @@ const data5: Protocol[] = [
     name: "Apyx Protocol",
     address: null,
     symbol: "-",
-    url: "https://apyx.fi",
+    url: "https://app.apyx.fi/join/3ve1q9l",
+    referralUrl: "https://app.apyx.fi/join/3ve1q9l",
     description: "Apyx Protocol issues apxUSD, a synthetic dollar on Ethereum, and apyUSD, an ERC-4626 savings vault for apxUSD.",
     chain: "Ethereum",
     logo: `${baseIconsUrl}/apyx-protocol.jpg`,
@@ -16402,6 +16419,9 @@ const data5: Protocol[] = [
     module: "saturn-protocol/index.js",
     twitter: "saturn_credit",
     listedAt: 1775766807,
+    dimensions: {
+      fees: "saturn-protocol",
+    }
   },
   {
     id: "7647",

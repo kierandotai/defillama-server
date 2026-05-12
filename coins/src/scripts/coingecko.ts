@@ -19,7 +19,7 @@ import {
 import { storeAllTokens } from "../utils/shared/bridgedTvlPostgres";
 import { sendMessage } from "../../../defi/src/utils/discord";
 import { chainsThatShouldNotBeLowerCased } from "../utils/shared/constants";
-import { cacheSolanaTokens, getSymbolAndDecimals } from "./coingeckoUtils";
+import { cacheSolanaTokens, getSymbolAndDecimals, isMetadataBlacklisted } from "./coingeckoUtils";
 import { dualWriteToChRedis } from "../adapters/utils/chRedisWrite";
 import * as sdk from "@defillama/sdk";
 
@@ -89,7 +89,17 @@ async function storeHistoricalCoinData(coinData: Write[]) {
 
 const aggregatedPlatforms: string[] = [];
 
-const ignoredChainSet = new Set(['sora', 'hydration', 'polkadot', 'osmosis', 'xrp', 'sonic-svm', 'vechain', 'cosmos', 'binancecoin', 'ordinals', 'saga-2', 'mantra', 'thorchain', 'initia', 'xcc', 'secret', 'icp', 'bittensor', 'kasplex', 'terra-2', 'bittorrent-old']);
+const ignoredChainSet = new Set([
+  'sora', 'hydration', 'polkadot', 'osmosis', 'xrp', 'sonic-svm', 'vechain', 'cosmos',
+  'binancecoin', 'ordinals', 'saga-2', 'mantra', 'thorchain', 'initia', 'xcc', 'secret',
+  'icp', 'bittensor', 'kasplex', 'terra-2', 'bittorrent-old',
+  // chains CG lists that we have no working metadata path for / are not in the SDK
+  'akash', 'galachain', 'gala', 'zedxion', 'glue', 'hyperliquid', 'memecore',
+  'persistence', 'fogo', 'noble', 'krown-network', 'rails-network',
+  'gravity-bridge', 'vanar-chain', 'wax', 'cellframe', 'iota',
+  'aelf', 'tdvv-sidechain', 'zano', 'rari', 'codex', 'funki', 'ql1',
+  'kasplex-2', 'pundi-aifx-omnilayer', 'zama-gateway-mainnet', 'grx-chain',
+]);
 
 async function getAndStoreCoins(coins: Coin[], rejected: Coin[]) {
   const coinData = await fetchCgPriceData(coins.map((c) => c.id));
@@ -271,7 +281,7 @@ async function getAndStoreCoins(coins: Coin[], rejected: Coin[]) {
             if (decimals == undefined || symbol == undefined) {
               const symbolAndDecimals = await getSymbolAndDecimals(address, chain, coin.symbol, coin.platforms[(chainToCoingeckoId as any)[chain] || chain]);
               if (symbolAndDecimals) console.log(`Found symbol and decimals for ${coin.id} on ${chain}:`, symbolAndDecimals);
-              else console.log(`Couldn't find symbol and decimals for ${coin.id} on ${chain} ${PK}`)
+              else if (!isMetadataBlacklisted(chain, address)) console.log(`Couldn't find symbol and decimals for ${coin.id} on ${chain} ${PK}`)
 
               if (!symbolAndDecimals) return;
               decimals = symbolAndDecimals.decimals;

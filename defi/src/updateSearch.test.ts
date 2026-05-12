@@ -1,5 +1,6 @@
 import {
   DIRECTORY_INDEX_SETTINGS,
+  SEARCH_DEPTH_RANK,
   PAGES_INDEX_SETTINGS,
   SEARCH_RANK,
   buildDirectoryResults,
@@ -9,22 +10,26 @@ import {
   dedupeFrontendPageResults,
   getFrontendPageRouteAlias,
   getProtocolSubSections,
+  shouldSkipProtocolSearchResult,
 } from "./updateSearch";
 
 describe("search index settings", () => {
-  it("searches route aliases before names and sub names", () => {
+  it("searches route aliases before names and keeps subpage labels display-only", () => {
     const attrs = PAGES_INDEX_SETTINGS.searchableAttributes;
 
     expect(attrs).toContain("routeAlias");
     expect(attrs.indexOf("routeAlias")).toBeLessThan(attrs.indexOf("name"));
-    expect(attrs.indexOf("routeAlias")).toBeLessThan(attrs.indexOf("subName"));
+    expect(attrs).not.toContain("subName");
+    expect(PAGES_INDEX_SETTINGS.displayedAttributes).toContain("subName");
   });
 
-  it("keeps exactness before business ranking", () => {
+  it("keeps result depth before exactness and business ranking", () => {
     const rules = PAGES_INDEX_SETTINGS.rankingRules;
 
+    expect(rules.indexOf("topLevelRank:desc")).toBeLessThan(rules.indexOf("exactness"));
     expect(rules.indexOf("exactness")).toBeLessThan(rules.indexOf("r:desc"));
     expect(rules.indexOf("r:desc")).toBeLessThan(rules.indexOf("attribute"));
+    expect(rules.indexOf("v:desc")).toBeLessThan(rules.indexOf("sort"));
   });
 
   it("supports frontend entity filters", () => {
@@ -38,6 +43,7 @@ describe("search index settings", () => {
       expect.arrayContaining(["symbol", "previousNames", "nameVariants", "keywords", "alias1", "alias5"])
     );
     expect(PAGES_INDEX_SETTINGS.sortableAttributes).toContain("mcapRank");
+    expect(PAGES_INDEX_SETTINGS.sortableAttributes).toContain("topLevelRank");
   });
 
   it("keeps directory search scoped to official URL entries", () => {
@@ -78,12 +84,23 @@ describe("frontend page search docs", () => {
       tastyMetrics: {},
     });
 
-    expect(fees).toMatchObject({ route: "/fees", routeAlias: "fees", r: SEARCH_RANK.navPage });
-    expect(revenue).toMatchObject({ route: "/revenue", routeAlias: "revenue", r: SEARCH_RANK.navPage });
+    expect(fees).toMatchObject({
+      route: "/fees",
+      routeAlias: "fees",
+      r: SEARCH_RANK.navPage,
+      topLevelRank: SEARCH_DEPTH_RANK.topLevel,
+    });
+    expect(revenue).toMatchObject({
+      route: "/revenue",
+      routeAlias: "revenue",
+      r: SEARCH_RANK.navPage,
+      topLevelRank: SEARCH_DEPTH_RANK.topLevel,
+    });
     expect(holdersRevenue).toMatchObject({
       route: "/holders-revenue",
       routeAlias: "holders revenue",
       r: SEARCH_RANK.navPage,
+      topLevelRank: SEARCH_DEPTH_RANK.topLevel,
     });
   });
 
@@ -140,6 +157,23 @@ describe("frontend page search docs", () => {
 });
 
 describe("entity and subpage search docs", () => {
+  it("skips zero-tvl canonical bridge rows that duplicate chain search results", () => {
+    const chainNames = new Set(["Arbitrum", "Solana", "Zircuit"]);
+
+    expect(
+      shouldSkipProtocolSearchResult({ name: "Solana", category: "Canonical Bridge", tvl: null }, chainNames)
+    ).toBe(true);
+    expect(shouldSkipProtocolSearchResult({ name: "Arbitrum", category: "Canonical Bridge", tvl: 0 }, chainNames)).toBe(
+      true
+    );
+    expect(
+      shouldSkipProtocolSearchResult({ name: "Arbitrum Bridge", category: "Canonical Bridge", tvl: 100 }, chainNames)
+    ).toBe(false);
+    expect(
+      shouldSkipProtocolSearchResult({ name: "Zircuit", category: "Canonical Bridge", tvl: 100 }, chainNames)
+    ).toBe(false);
+  });
+
   it("keeps protocol subpages below entities and without route aliases", () => {
     const result = buildProtocolSearchResult({
       id: "protocol_markit",
@@ -158,12 +192,16 @@ describe("entity and subpage search docs", () => {
     });
 
     expect(subPages.find((page) => page.subName === "Fees")).toMatchObject({
+      name: "MarkIt",
       route: "/protocol/markit?tvl=false&fees=true",
       r: SEARCH_RANK.subPage,
+      topLevelRank: SEARCH_DEPTH_RANK.subPage,
     });
     expect(subPages.find((page) => page.subName === "Revenue")).toMatchObject({
+      name: "MarkIt",
       route: "/protocol/markit?tvl=false&revenue=true",
       r: SEARCH_RANK.subPage,
+      topLevelRank: SEARCH_DEPTH_RANK.subPage,
     });
     expect(subPages.some((page) => "routeAlias" in page)).toBe(false);
   });
@@ -190,18 +228,30 @@ describe("entity and subpage search docs", () => {
       v: 0,
     });
 
-    expect(stabble).toMatchObject({ name: "Stabble", symbol: "STB", r: SEARCH_RANK.entity });
-    expect(markit).toMatchObject({ name: "MarkIt", route: "/protocol/markit", r: SEARCH_RANK.entity });
+    expect(stabble).toMatchObject({
+      name: "Stabble",
+      symbol: "STB",
+      r: SEARCH_RANK.entity,
+      topLevelRank: SEARCH_DEPTH_RANK.topLevel,
+    });
+    expect(markit).toMatchObject({
+      name: "MarkIt",
+      route: "/protocol/markit",
+      r: SEARCH_RANK.entity,
+      topLevelRank: SEARCH_DEPTH_RANK.topLevel,
+    });
     expect(markit.nameVariants).toContain("Mark It");
-    expect(stab).toMatchObject({ name: "STAB Protocol", symbol: "ILIS", r: SEARCH_RANK.entity });
+    expect(stab).toMatchObject({
+      name: "STAB Protocol",
+      symbol: "ILIS",
+      r: SEARCH_RANK.entity,
+      topLevelRank: SEARCH_DEPTH_RANK.topLevel,
+    });
     expect(stab.routeAlias).toBeUndefined();
   });
 
   it("keeps stablecoin symbols indexed for USDT and USDC searches", () => {
-    const tether = buildStablecoinSearchResult(
-      { name: "Tether", symbol: "USDT", circulating: { peggedUSD: 100 } },
-      {}
-    );
+    const tether = buildStablecoinSearchResult({ name: "Tether", symbol: "USDT", circulating: { peggedUSD: 100 } }, {});
     const usdCoin = buildStablecoinSearchResult(
       { name: "USD Coin", symbol: "USDC", circulating: { peggedUSD: 100 } },
       {}
@@ -212,6 +262,7 @@ describe("entity and subpage search docs", () => {
       symbol: "USDT",
       route: "/stablecoin/tether",
       r: SEARCH_RANK.entity,
+      topLevelRank: SEARCH_DEPTH_RANK.topLevel,
       type: "Stablecoin",
     });
     expect(usdCoin).toMatchObject({
@@ -219,6 +270,7 @@ describe("entity and subpage search docs", () => {
       symbol: "USDC",
       route: "/stablecoin/usd-coin",
       r: SEARCH_RANK.entity,
+      topLevelRank: SEARCH_DEPTH_RANK.topLevel,
       type: "Stablecoin",
     });
   });

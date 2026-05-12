@@ -205,4 +205,5 @@ export default {
   safo: require("./rwa/safo"),
   xaue: require("./rwa/xaue"),
   dCOMP: require("./other/dCOMP"),
+  valos: require("./other/valos"),
 };

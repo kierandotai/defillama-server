@@ -10874,22 +10874,17 @@ const data3_0: Protocol[] = [
     tags: ["Treasury Bills"],
     chains: ["Tron"],
     oraclesBreakdown: [
-      {
-        name: "WINkLink",
-        type: "Primary",
-        proof: ["https://juststable.tronscan.org/?lang=en-US#/home","https://x.com/justinsuntron/status/1851885789116039226"],
-        endDate: '2025-05-15',
-      },
-      {
-        name: "Chainlink",
-        type: "Primary",
-        proof: ["https://juststable.tronscan.org/?lang=en-US#/home","https://x.com/justinsuntron/status/1851885789116039226"],
-        startDate: '2025-05-15',
-      },
+      {name: "WINkLink",type: "Primary",proof: ["https://juststable.tronscan.org/?lang=en-US#/home","https://x.com/justinsuntron/status/1851885789116039226"],
+        endDate: '2025-05-15',},
+      {name: "Chainlink",type: "Primary",proof: ["https://juststable.tronscan.org/?lang=en-US#/home","https://x.com/justinsuntron/status/1851885789116039226"],
+        startDate: '2025-05-15',},
     ],
     module: "stUSDT/index.js",
     twitter: "stusdtio",
     listedAt: 1688472910,
+    dimensions: {
+      fees: "stUSDT",
+    },
   },
   {
     id: "3194",
@@ -16488,7 +16483,7 @@ const data3_0: Protocol[] = [
   },
   {
     id: "3443",
-    name: "Loot  DAO",
+    name: "Loot DAO",
     address: "0xFF9C1b15B16263C61d017ee9F65C50e4AE0113D7",
     symbol: "LOOT",
     url: "https://www.royaltydao.com/",
@@ -32036,7 +32031,8 @@ const data3_1: Protocol[] = [
     github: ["BitflowFinance"],
     listedAt: 1708044671,
     dimensions: {
-      dexs: "bitflow-fi"
+      dexs: "bitflow-fi",
+      fees: "bitflow-fi"
     }
   },
   {
@@ -43231,10 +43227,11 @@ const data3_2: Protocol[] = [
     audits: "0",
     gecko_id: "tensor",
     cmcId: null,
-    category: "Chain",
+    category: "NFT Marketplace",
     chains: ["Solana"],
-    module: "dummy.js",
+    module: "tensor/index.js",
     twitter: "TensorFdn",
+    listedAt: 1778252901,
   },
   {
     id: "4641",
@@ -45132,6 +45129,9 @@ const data3_2: Protocol[] = [
       "https://github.com/blend-capital/blend-contracts/blob/main/audits/blend_capital_final.pdf",
     ],
     listedAt: 1717598971,
+    dimensions: {
+      fees: "blend-pools",
+    }
   },
 ]
 const data3_3: Protocol[] = [
@@ -62870,7 +62870,10 @@ const data3_3: Protocol[] = [
     twitter: "b14g_network",
     audit_links: ["https://docs.b14g.xyz/audits"],
     github: ["b14glabs"],
-    listedAt: 1734725715
+    listedAt: 1734725715,
+    dimensions: {
+      fees: "b14g"
+    }
   },
   {
     id: "5542",

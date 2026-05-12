@@ -816,6 +816,62 @@ const configs: { [adapter: string]: Config } = {
     underlying: "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48",
     address: "0xF65460B84c13eeb911303336Ab0f9D63CC79839f",
   },
+  ftSparkUSDC: {
+    rate: async ({ api }) => {
+      const [bal, supply] = await Promise.all([
+        api.call({
+          abi: "erc20:balanceOf",
+          target: "0x28B3a8fb53B741A8Fd78c0fb9A6B2393d896a43d",
+          params: "0xEB5Cb93C27A11782D146863a340455E614B10302",
+        }),
+        api.call({
+          abi: "erc20:totalSupply",
+          target: "0xEB5Cb93C27A11782D146863a340455E614B10302",
+        }),
+      ]);
+      return bal / supply;
+    },
+    chain: "ethereum",
+    underlying: "0x28B3a8fb53B741A8Fd78c0fb9A6B2393d896a43d",
+    address: "0xEB5Cb93C27A11782D146863a340455E614B10302",
+  },
+  ftSparkUSDT: {
+    rate: async ({ api }) => {
+      const [bal, supply] = await Promise.all([
+        api.call({
+          abi: "erc20:balanceOf",
+          target: "0xe2e7a17dFf93280dec073C995595155283e3C372",
+          params: "0x4f47c4aDC71E1d33fdA433FadDA596a529307af5",
+        }),
+        api.call({
+          abi: "erc20:totalSupply",
+          target: "0x4f47c4aDC71E1d33fdA433FadDA596a529307af5",
+        }),
+      ]);
+      return bal / supply;
+    },
+    chain: "ethereum",
+    underlying: "0xe2e7a17dFf93280dec073C995595155283e3C372",
+    address: "0x4f47c4aDC71E1d33fdA433FadDA596a529307af5",
+  },
+  ftDNS_USDC: {
+    rate: async ({ api }) => {
+      const [voc, supply] = await Promise.all([
+        api.call({
+          abi: "function valueOfCapital() view returns (uint256)",
+          target: "0x6EC218FC45aC0C7B83D16557befABB62ed7455Ae",
+        }),
+        api.call({
+          abi: "uint256:totalSupply",
+          target: "0x6EC218FC45aC0C7B83D16557befABB62ed7455Ae",
+        }),
+      ]);
+      return voc / supply;
+    },
+    chain: "sonic",
+    underlying: "0x29219dd400f2Bf60E5a23d13Be72B486D4038894",
+    address: "0x6EC218FC45aC0C7B83D16557befABB62ed7455Ae",
+  },
   wSTRC: {
     rate: async ({ api }) => {
       const [supply, balance] = await Promise.all([

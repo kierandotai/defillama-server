@@ -78,7 +78,7 @@ export async function iterateOverPlatforms(
 
         const timestamp = coinPlatformData[DBPK]
           ? coinPlatformData[DBPK].redirect
-            ? redirectData[coinPlatformData[DBPK].redirect].timestamp
+            ? redirectData[coinPlatformData[DBPK].redirect]?.timestamp ?? 0
             : coinPlatformData[DBPK].timestamp
           : 0;
           

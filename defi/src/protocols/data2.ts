@@ -3461,7 +3461,7 @@ const data2: Protocol[] = [
     gecko_id: null,
     cmcId: null,
     category: "Yield",
-    chains: [],
+    chains: ["Fantom"],
     module: "jetmine/index.js",
     twitter: "defi_waterfall",
     audit_links: ["https://paladinsec.co/projects/waterfall-finance/"],
@@ -3855,6 +3855,9 @@ const data2: Protocol[] = [
     twitter: "Kleros_io",
     listedAt: 1647396444,
     github: ["kleros"],
+    dimensions: {
+      fees: "kleros",
+    }
   },
   {
     id: "1555",
@@ -24864,6 +24867,10 @@ const data2: Protocol[] = [
     twitter: "rarifoundation",
     governanceID: ["snapshot:rarible.eth"],
     github: ["rarible"],
+    dimensions: {
+      fees: "rarible",
+      dexs: "rarible",
+    },
   },
   {
     id: "2505",

@@ -179,16 +179,15 @@ export async function getProtocolTvl(
         }
       });
 
-      const chainsLength = Object.keys(chainTvls).length;
+      let chainsLength = 0;
+      let allTvlsAreAddl = true;
 
-      let allTvlsAreAddl = false;
-
-      Object.keys(chainTvls).forEach((type) => {
-        allTvlsAreAddl =
-          type === "doublecounted" ||
-          type === "liquidstaking" ||
-          type === "dcAndLsOverlap";
-      });
+      for (const type in chainTvls) {
+        chainsLength += 1;
+        if (type !== "doublecounted" && type !== "liquidstaking" && type !== "dcAndLsOverlap") {
+          allTvlsAreAddl = false;
+        }
+      }
 
       if (chainsLength === 0 || (chainsLength <= 3 && allTvlsAreAddl)) {
         // let defaultChain = protocol.chains[0] ?? protocolsById[protocol.id]?.chains[0] ?? protocolsById[protocol.id]?.chain

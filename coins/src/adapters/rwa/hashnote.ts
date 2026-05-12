@@ -7,9 +7,9 @@ const abi = 'function latestRoundData() external view returns (uint80 roundId, i
 export async function hashnote(timestamp: number): Promise<Write[]> {
     const symbol = 'USYC'
     const api = await getApi("ethereum", timestamp);
-    const roundData = await api.call({ abi, target: "0x4c48bcb2160F8e0aDbf9D4F3B034f1e36d1f8b3e", });
-    checkOracleFresh(roundData.updatedAt, { timestamp, label: "USYC" });
-    const tokenPrice = roundData.answer / 1e8;
+    const roundData = await api.call({ abi, target: "0x74f2199AEb743f68f05943e5715A33EaF2b61f53", });
+    checkOracleFresh(roundData.updatedAt, { timestamp, label: "USYC", maxAgeSeconds: 4 * 24 * 60 * 60 });
+    const tokenPrice = roundData.answer / 1e18;
 
     const writes: Write[] = [];
     addToDBWritesList(writes, 'canto', '0xfb8255f0de21acebf490f1df6f0bdd48cc1df03b', tokenPrice, 6, symbol, timestamp, "hashnote-rwa", 1,);
