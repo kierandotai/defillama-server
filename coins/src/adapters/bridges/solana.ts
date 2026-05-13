@@ -22,7 +22,8 @@ interface Token {
 export default async function bridge() {
   const tokenlist = (
     await fetch(
-      "https://cdn.jsdelivr.net/gh/solana-labs/token-list@main/src/tokens/solana.tokenlist.json"
+      // "https://cdn.jsdelivr.net/gh/solana-labs/token-list@main/src/tokens/solana.tokenlist.json"
+      "https://raw.githubusercontent.com/solana-labs/token-list/refs/heads/main/src/tokens/solana.tokenlist.json"
     )
   ).tokens as Token[];
 
