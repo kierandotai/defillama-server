@@ -1803,7 +1803,8 @@ const data3_0: Protocol[] = [
     listedAt: 1680810692,
     github: ["aktionariat"],
     dimensions: {
-      dexs: "aktionariat"
+		dexs: "aktionariat",
+		fees: "aktionariat",
     }
   },
   {
