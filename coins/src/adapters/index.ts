@@ -203,6 +203,7 @@ export default {
   redstone: require("./oracles/redstone"),
   navTokens: require("./rwa/navTokens"),
   safo: require("./rwa/safo"),
+  brix: require("./rwa/brix"),
   xaue: require("./rwa/xaue"),
   dCOMP: require("./other/dCOMP"),
   valos: require("./other/valos"),
