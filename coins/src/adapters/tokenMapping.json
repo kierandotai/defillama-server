@@ -5596,7 +5596,7 @@
     "0x754cdad6f5821077d6915004be2ce05f93d176f8": {
       "decimals": "18",
       "symbol": "DMT",
-      "to": "coingecko#wrapped-dmt"
+      "to": "coingecko#dream-machine-token"
     },
     "0xe01e3b20c5819cf919f7f1a2b4c18bbfd222f376": {
       "decimals": "18",
@@ -7581,7 +7581,7 @@
     "0x677F7e16C7Dd57be1D4C8aD1244883214953DC47": {
       "decimals": "18",
       "symbol": "WCHZ",
-      "to": "coingecko#wrapped-chiliz"
+      "to": "coingecko#chiliz"
     },
     "0x60f397acbcfb8f4e3234c659a3e10867e6fa6b67": {
       "to": "coingecko#pepper",
@@ -9072,7 +9072,7 @@
     "0x413f0e3a440aba7a15137f4278121450416882d5": {
       "decimals": "18",
       "symbol": "WBR",
-      "to": "coingecko#wrapped-bitrock"
+      "to": "coingecko#bitrock"
     },
     "0xde67d97b8770dc98c746a3fc0093c538666eb493": {
       "decimals": "9",
@@ -10856,6 +10856,11 @@
       "to": "coingecko#etcpow",
       "decimals": 18,
       "symbol": "ETCPOW"
+    },
+    "0x82a618305706b14e7bcf2592d4b9324a366b6dad": {
+      "to": "coingecko#ethereum-classic",
+      "decimals": 18,
+      "symbol": "WETC"
     }
   },
   "pulse": {
