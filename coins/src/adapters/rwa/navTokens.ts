@@ -102,41 +102,86 @@ async function priceSet1(timestamp: number): Promise<Write[]> {
 async function priceSet2(timestamp: number): Promise<Write[]> {
   const writes: Write[] = [];
 
-  await Promise.all(
-    set2Funds.map(async (fund) => {
-      const evmDeploys = fund.deployments.filter((d) => d.manager);
-      if (evmDeploys.length === 0) return;
+  type EvmEntry = { fundIdx: number; deployIdx: number; address: string; manager: string };
+  type SolEntry = { fundIdx: number; deployIdx: number; address: string };
+  const evmByChain: { [chain: string]: EvmEntry[] } = {};
+  const solByChain: { [chain: string]: SolEntry[] } = {};
+  set2Funds.forEach((fund, fundIdx) => {
+    fund.deployments.forEach((d, deployIdx) => {
+      if (d.chain === "solana") {
+        (solByChain[d.chain] ??= []).push({ fundIdx, deployIdx, address: d.address });
+      } else if (d.manager) {
+        (evmByChain[d.chain] ??= []).push({ fundIdx, deployIdx, address: d.address, manager: d.manager });
+      }
+    });
+  });
 
-      // Get exchange rate from first EVM Manager
-      const primary = evmDeploys[0];
-      const api = await getApi(primary.chain, timestamp);
-      const [rate, denom] = await Promise.all([
-        api.call({ target: primary.manager, abi: "uint256:lastSetMintExchangeRate" }),
-        api.call({ target: primary.manager, abi: "uint256:BPS_DENOMINATOR" }),
+  // Per-fund exchange rate is read from the first EVM deployment that has a manager.
+  const fundPrimary: { [fundIdx: number]: { chain: string; manager: string } } = {};
+  set2Funds.forEach((fund, fundIdx) => {
+    const primary = fund.deployments.find((d) => d.manager && d.chain !== "solana");
+    if (primary) fundPrimary[fundIdx] = { chain: primary.chain, manager: primary.manager };
+  });
+
+  const evmChains = Object.keys(evmByChain);
+  const solChains = Object.keys(solByChain);
+
+  const evmDecimalsByChain: { [chain: string]: any[] } = {};
+  const evmManagerData: { [chain: string]: { rates: any[]; denoms: any[]; fundIdxs: number[] } } = {};
+
+  await Promise.all([
+    ...evmChains.map(async (chain) => {
+      const api = await getApi(chain, timestamp);
+      const entries = evmByChain[chain];
+      // Funds whose primary manager is on this chain
+      const primaryFundIdxs = Object.entries(fundPrimary)
+        .filter(([_, p]) => p.chain === chain)
+        .map(([idx]) => Number(idx));
+      const managers = primaryFundIdxs.map((idx) => fundPrimary[idx].manager);
+      const [decimals, rates, denoms] = await Promise.all([
+        api.multiCall({ abi: "uint8:decimals", calls: entries.map((e) => e.address), permitFailure: true }),
+        api.multiCall({ abi: "uint256:lastSetMintExchangeRate", calls: managers, permitFailure: true }),
+        api.multiCall({ abi: "uint256:BPS_DENOMINATOR", calls: managers, permitFailure: true }),
       ]);
-      if (!rate || !denom || Number(denom) === 0) return;
-      const price = Number(rate) / Number(denom);
-
-      // Fetch decimals for all deployments in parallel
-      const solDeploys = fund.deployments.filter((d) => d.chain === "solana");
-      const [evmDecimals, solDecimals] = await Promise.all([
-        Promise.all(
-          evmDeploys.map(async (d) => {
-            const chainApi = await getApi(d.chain, timestamp);
-            return Number(await chainApi.call({ target: d.address, abi: "uint8:decimals" }));
-          }),
-        ),
-        getSolanaTokenDecimals(solDeploys.map((d) => d.address)),
-      ]);
-
-      evmDeploys.forEach((d, i) => {
-        addToDBWritesList(writes, d.chain, d.address, price, evmDecimals[i], fund.symbol, timestamp, "nav-tokens", 0.9);
-      });
-      solDeploys.forEach((d, i) => {
-        addToDBWritesList(writes, d.chain, d.address, price, solDecimals[i], fund.symbol, timestamp, "nav-tokens", 0.9);
-      });
+      evmDecimalsByChain[chain] = decimals;
+      evmManagerData[chain] = { rates, denoms, fundIdxs: primaryFundIdxs };
     }),
-  );
+    ...solChains.map(async (chain) => {
+      const entries = solByChain[chain];
+      const decimals = await getSolanaTokenDecimals(entries.map((e) => e.address));
+      evmDecimalsByChain[chain] = decimals;
+    }),
+  ]);
+
+  // Build per-fund price from primary manager data
+  const fundPrices: { [fundIdx: number]: number } = {};
+  for (const [fundIdxStr, p] of Object.entries(fundPrimary)) {
+    const fundIdx = Number(fundIdxStr);
+    const { rates, denoms, fundIdxs } = evmManagerData[p.chain] ?? { rates: [], denoms: [], fundIdxs: [] };
+    const i = fundIdxs.indexOf(fundIdx);
+    if (i < 0) continue;
+    const rate = rates[i];
+    const denom = denoms[i];
+    if (!rate || !denom || Number(denom) === 0) continue;
+    fundPrices[fundIdx] = Number(rate) / Number(denom);
+  }
+
+  for (const chain of evmChains) {
+    evmByChain[chain].forEach((e, i) => {
+      const price = fundPrices[e.fundIdx];
+      const decimals = evmDecimalsByChain[chain][i];
+      if (price === undefined || decimals == null) return;
+      addToDBWritesList(writes, chain, e.address, price, Number(decimals), set2Funds[e.fundIdx].symbol, timestamp, "nav-tokens", 0.9);
+    });
+  }
+  for (const chain of solChains) {
+    solByChain[chain].forEach((e, i) => {
+      const price = fundPrices[e.fundIdx];
+      const decimals = evmDecimalsByChain[chain][i];
+      if (price === undefined || decimals == null) return;
+      addToDBWritesList(writes, chain, e.address, price, Number(decimals), set2Funds[e.fundIdx].symbol, timestamp, "nav-tokens", 0.9);
+    });
+  }
 
   return writes;
 }

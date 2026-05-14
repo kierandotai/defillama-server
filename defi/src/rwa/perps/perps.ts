@@ -1,5 +1,7 @@
 import { getCurrentUnixTimestamp, getTimestampAtStartOfDay } from "../../utils/date";
-import { runInPromisePool } from "@defillama/sdk/build/generalUtil";
+
+import * as sdk from '@defillama/sdk'
+const { runInPromisePool } = sdk.util;
 import { initPG, fetchLatestAggregateTotals, fetchCumulativeFundingPG, fetchLatestFundingTimestampPG, fetchRollingVolumesPG } from "./db";
 import { sendMessage } from "../../utils/discord";
 import { getAllAdapters, getAdapter } from "./platforms";

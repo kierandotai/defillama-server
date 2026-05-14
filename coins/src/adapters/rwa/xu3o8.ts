@@ -36,21 +36,7 @@ async function getTokenPrices(timestamp: number) {
   return writes;
 }
 
-const slot0Abi = {
-  inputs: [],
-  name: "slot0",
-  outputs: [
-    { name: "sqrtPriceX96", type: "uint160" },
-    { name: "tick", type: "int24" },
-    { name: "observationIndex", type: "uint16" },
-    { name: "observationCardinality", type: "uint16" },
-    { name: "observationCardinalityNext", type: "uint16" },
-    { name: "feeProtocol", type: "uint8" },
-    { name: "unlocked", type: "bool" },
-  ],
-  stateMutability: "view",
-  type: "function",
-};
+const slot0Abi =  "function slot0() view returns (uint160 sqrtPriceX96, int24 tick, uint16 observationIndex, uint16 observationCardinality, uint16 observationCardinalityNext, uint8 feeProtocol, bool unlocked)"
 
 async function getXU3o8Price(
   poolContract: string,

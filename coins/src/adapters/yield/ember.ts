@@ -2,7 +2,7 @@ import { Write } from "../utils/dbInterfaces";
 import { addToDBWritesList } from "../utils/database";
 import axios from "axios";
 import { getTokenInfo } from "../utils/sui";
-import { runInPromisePool } from "@defillama/sdk/build/util";
+import * as sdk from "@defillama/sdk";
 
 export async function ember(timestamp: number) {
   if (timestamp != 0) throw new Error("Ember is only for current price");
@@ -11,7 +11,7 @@ export async function ember(timestamp: number) {
   );
   const writes: Write[] = [];
 
-  await runInPromisePool({
+  await sdk.util.runInPromisePool({
     items: res.data,
     concurrency: 5,
     processor: async (m: any) => {

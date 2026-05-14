@@ -1,4 +1,6 @@
-import { runInPromisePool } from "@defillama/sdk/build/generalUtil";
+
+import * as sdk from '@defillama/sdk'
+const { runInPromisePool } = sdk.util;
 import type { PlatformAdapter, FundingEntry, ParsedPerpsMarket } from "../types";
 import { safeFloat, safeFetch } from "../types";
 

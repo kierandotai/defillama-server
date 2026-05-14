@@ -1,9 +1,4 @@
-import getTokenPrices from "./euler";
 import getEulerV2TokenPrices from "./eulerV2";
-
-function euler(timestamp: number = 0) {
-  return getTokenPrices("ethereum", timestamp);
-}
 
 const v2ChainConfigs = {
   ethereum: {
@@ -78,6 +73,5 @@ function eulerV2(timestamp: number = 0) {
 }
 
 export const adapters = {
-  // euler,
   eulerV2,
 };

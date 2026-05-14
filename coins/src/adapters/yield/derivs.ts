@@ -1,4 +1,6 @@
-import { runInPromisePool } from "@defillama/sdk/build/generalUtil";
+
+import * as sdk from '@defillama/sdk'
+const { runInPromisePool } = sdk.util;
 import { getCurrentUnixTimestamp } from "../../utils/date";
 import { nullAddress } from "../../utils/shared/constants";
 import { Write } from "../utils/dbInterfaces";
@@ -45,13 +47,7 @@ const configs: { [adapter: string]: Config } = {
     rate: async ({ api }) => {
       const raw = await api.call({
         target: "0xe2de616fbd8cb9180b26fcfb1b761a232fe56717",
-        abi: {
-          inputs: [],
-          name: "stMTRGPerToken",
-          outputs: [{ internalType: "uint256", name: "", type: "uint256" }],
-          stateMutability: "view",
-          type: "function",
-        },
+        abi: 'uint256:stMTRGPerToken',
       });
       return raw / 10 ** 18;
     },
