@@ -54,12 +54,12 @@ const v2ChainConfigs = {
   //   fromBlock: 2350701,
   //   vaultCount: 0,
   // },
-  unichain: {
-    factory: "0xbAd8b5BDFB2bcbcd78Cc9f1573D3Aad6E865e752",
-    vaultLens: "0x03833b4A873eA1F657340C72971a2d0EbB2B4D82",
-    fromBlock: 8541544,
-    vaultCount: 37,
-  },
+  // unichain: {
+  //   factory: "0xbAd8b5BDFB2bcbcd78Cc9f1573D3Aad6E865e752",
+  //   vaultLens: "0x03833b4A873eA1F657340C72971a2d0EbB2B4D82",
+  //   fromBlock: 8541544,
+  //   vaultCount: 37,
+  // },
 };
 
 function eulerV2(timestamp: number = 0) {
