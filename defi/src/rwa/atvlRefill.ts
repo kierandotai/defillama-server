@@ -365,6 +365,24 @@ function getActiveTvls(
   });
 }
 
+// Returns stablecoinsData[cgId] filtered to only the chain slugs that exist
+// in finalData[rwaId].contracts. Without this, the stablecoins-API multi-chain
+// map fans out onto IDs that share a Coingecko ID but don't live on every
+// chain that the canonical cgId asset does (the Ondo USDY phantom bug).
+function filterStablecoinsToContractChains(
+  finalData: any,
+  rwaId: string,
+  stablecoinsChainMap: { [chain: string]: any },
+): { [chain: string]: any } {
+  const contracts = finalData[rwaId]?.contracts ?? {};
+  const allowed = new Set<string>(Object.keys(contracts).map((c) => getChainIdFromDisplayName(c)));
+  const out: { [chain: string]: any } = {};
+  for (const [chain, mcap] of Object.entries(stablecoinsChainMap ?? {})) {
+    if (allowed.has(chain)) out[chain] = mcap;
+  }
+  return out;
+}
+
 function getOnChainTvlAndActiveMcaps(
   assetPrices: any,
   tokenToProjectMap: any,
@@ -377,8 +395,9 @@ function getOnChainTvlAndActiveMcaps(
    Object.keys(stablecoinsData).forEach((cgId: string) => {
     const rwaId = coingeckoIdToRwaId[cgId];
     if (!finalData[rwaId]) return;
-    finalData[rwaId][RWA_KEY_MAP.onChain] = stablecoinsData[cgId];
-    if (!finalData[rwaId][RWA_KEY_MAP.activeMcap] && finalData[rwaId][RWA_KEY_MAP.activeMcapChecked]) finalData[rwaId][RWA_KEY_MAP.activeMcap] = { ...stablecoinsData[cgId] };
+    const filtered = filterStablecoinsToContractChains(finalData, rwaId, stablecoinsData[cgId]);
+    finalData[rwaId][RWA_KEY_MAP.onChain] = filtered;
+    if (!finalData[rwaId][RWA_KEY_MAP.activeMcap] && finalData[rwaId][RWA_KEY_MAP.activeMcapChecked]) finalData[rwaId][RWA_KEY_MAP.activeMcap] = { ...filtered };
   });
 
   // An RWA can have multiple token addresses on the same chain; aggregate across
@@ -394,7 +413,7 @@ function getOnChainTvlAndActiveMcaps(
     const chainDisplayName = getChainDisplayName(chain, true);
 
     if (cgId && stablecoinsData[cgId]) {
-      finalData[rwaId][RWA_KEY_MAP.onChain] = stablecoinsData[cgId];
+      finalData[rwaId][RWA_KEY_MAP.onChain] = filterStablecoinsToContractChains(finalData, rwaId, stablecoinsData[cgId]);
       if (!finalData[rwaId][RWA_KEY_MAP.price] && assetPrices[pk]?.price) {
         finalData[rwaId][RWA_KEY_MAP.price] = toFiniteNumberOrNull(assetPrices[pk].price);
       }

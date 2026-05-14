@@ -122,7 +122,7 @@ function generateIdMap(
   return idMap;
 }
 
-function trimLeadingZeros(data: Array<{ timestamp: number; onChainMcap: number; defiActiveTvl: number; activeMcap?: number }>): typeof data {
+export function trimLeadingZeros(data: Array<{ timestamp: number; onChainMcap: number; defiActiveTvl: number; activeMcap?: number }>): typeof data {
   while (data.length > 0) {
     const first = data[0];
     if (first.onChainMcap === 0 && first.defiActiveTvl === 0 && (!first.activeMcap || first.activeMcap === 0)) {
@@ -1353,11 +1353,15 @@ async function main() {
   }
 }
 
-main()
-  .then(() => process.exit(0))
-  .catch((error) => {
-    console.error('Fatal error:', error);
-    process.exit(1);
-  });
+// Only run when invoked as the entry point. Imported (e.g. for `trimLeadingZeros`
+// from cli scripts) must not trigger the full cron.
+if (require.main === module) {
+  main()
+    .then(() => process.exit(0))
+    .catch((error) => {
+      console.error('Fatal error:', error);
+      process.exit(1);
+    });
+}
 
 // Run with: npx ts-node defi/src/rwa/cron.ts
