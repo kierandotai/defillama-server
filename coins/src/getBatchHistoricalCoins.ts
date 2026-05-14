@@ -9,7 +9,6 @@ import { quantisePeriod } from "./utils/timestampUtils";
 import { getBasicCoins } from "./utils/getCoinsUtils";
 
 import * as sdk from '@defillama/sdk'
-const { runInPromisePool } = sdk.util;
 
 const defaultSearchWidth = quantisePeriod("6h");
 
@@ -60,7 +59,7 @@ export async function fetchDBData(
     });
   });
 
-  await runInPromisePool({
+  await sdk.util.runInPromisePool({
     items: tasks,
     concurrency: 7,
     processor: async (task: () => Promise<void>) => task(),

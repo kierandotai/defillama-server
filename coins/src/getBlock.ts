@@ -7,7 +7,6 @@ import { sendMessage } from "../../defi/src/utils/discord";
 import { DAY } from "./utils/processCoin";
 
 import * as sdk from '@defillama/sdk'
-const { getProvider } = sdk;
 import { resolveChain } from "./utils/chainIdMap"
 
 interface TimestampBlock {
@@ -116,7 +115,7 @@ function getExtraProvider(chain: string | undefined) {
     return cosmosBlockProvider(chain)
   }
   if (["lite"].includes(chain as any)) return zkSyncBlockProvider();
-  return getProvider(chain as any);
+  return sdk.getProvider(chain as any);
 }
 
 function isAValidBlockAtThisTimestamp(timestamp: number, chain: string) {

@@ -10,7 +10,6 @@ import { getBasicCoins } from "./utils/getCoinsUtils";
 import { lowercaseAddress } from "./utils/processCoin";
 
 import * as sdk from '@defillama/sdk'
-const { runInPromisePool } = sdk.util;
 
 function generateTimestamps(
   startTimestamp: number,
@@ -88,7 +87,7 @@ async function fetchDBData(
     );
   });
 
-  await runInPromisePool({
+  await sdk.util.runInPromisePool({
     items: promises,
     concurrency: 7,
     processor: async (promise: any) => await promise,
