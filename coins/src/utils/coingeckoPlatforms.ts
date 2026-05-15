@@ -81,11 +81,23 @@ export async function iterateOverPlatforms(
             ? redirectData[coinPlatformData[DBPK].redirect]?.timestamp ?? 0
             : coinPlatformData[DBPK].timestamp
           : 0;
-          
+
+        // Detect CG slug renames: if the stored redirect points at a
+        // coingecko# slug different from the current coin.id, the row was
+        // written before CG renamed this coin and would otherwise stay
+        // pinned to the dead slug forever (it's at confidence 0.99 and
+        // appears "fresh" via the redirect target).
+        const existingRedirect = coinPlatformData[DBPK]?.redirect;
+        const redirectIsStaleCgSlug =
+          typeof existingRedirect === "string" &&
+          existingRedirect.startsWith("coingecko#") &&
+          existingRedirect !== `coingecko#${coin.id}`;
+
         if (
           !coinPlatformData[DBPK] ||
           timestamp < margin ||
-          coinPlatformData[DBPK].confidence < 0.99
+          coinPlatformData[DBPK].confidence < 0.99 ||
+          redirectIsStaleCgSlug
         ) {
           await iterator(PK);
         }
