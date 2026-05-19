@@ -565,23 +565,28 @@ async function generatePGCache(): Promise<{ updatedIds: number }> {
       const existingCache = await readPGCacheForId(id);
       const existingRows = getPGCacheRowCount(existingCache);
       const shouldRebuild = !existingCache || existingRows < MIN_PG_CACHE_ROWS_FOR_INCREMENTAL_REUSE;
+      const newData = processRecordsToPGCache(idRecords);
+      const incrementallyMerged = mergePGCacheData(existingCache, newData);
+      const incrementallyMergedRows = getPGCacheRowCount(incrementallyMerged);
 
       if (shouldRebuild) {
         const fullRecords = await fetchDailyRecordsWithChainsForIdPG(id);
         const fullData = processRecordsToPGCache(fullRecords);
+        const rebuiltRows = getPGCacheRowCount(fullData);
         await storePGCacheForId(id, smoothPGCacheData(fullData));
-        repairEvents.push({
-          id,
-          reason: existingCache ? 'suspiciously small existing pg-cache' : 'missing existing pg-cache',
-          existingRows,
-          rebuiltRows: fullRecords.length,
-          incrementalRows: idRecords.length,
-          ...getRecordRange(fullRecords),
-        });
+
+        if (rebuiltRows > incrementallyMergedRows) {
+          repairEvents.push({
+            id,
+            reason: existingCache ? 'suspiciously small existing pg-cache' : 'missing existing pg-cache',
+            existingRows,
+            rebuiltRows,
+            incrementalRows: idRecords.length,
+            ...getRecordRange(fullRecords),
+          });
+        }
       } else {
-        const newData = processRecordsToPGCache(idRecords);
-        const merged = mergePGCacheData(existingCache, newData);
-        await storePGCacheForId(id, smoothPGCacheData(merged));
+        await storePGCacheForId(id, smoothPGCacheData(incrementallyMerged));
       }
       updatedIds++;
     }
