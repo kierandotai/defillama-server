@@ -6230,7 +6230,7 @@ const data: Protocol[] = [
     description:
       "bEarn Fi is a cross-chain product in Decentralized Finance (DeFi) that at its core provides yield generation, algorithmic stablecoin, bridge, gaming aggregation, treasury, AMM DEX, and governance on multi-chain: Binance Smart Chain blockchain (BSC) and Ethereum blockchain.",
     chain: "Binance",
-    logo: `${baseIconsUrl}/bearn.jpg`,
+    logo: `${baseIconsUrl}/bearnfi.jpg`,
     audits: "3",
     gecko_id: "bearn-fi",
     cmcId: "8796",
@@ -16532,7 +16532,7 @@ The eWIT token is a custodial, wrapped version of the Witnet coin managed by the
     category: "Yield",
     chains: ["Ethereum"],
     module: "saffron/index.js",
-    twitter: "saffronfinance_",
+    twitter: "saffron",
     audit_links: ["https://github.com/saffron-finance/saffron/tree/master/audits/saffron-staking-v2"],
     listedAt: 1637370827,
     github: ["saffron-finance"],
@@ -16819,7 +16819,8 @@ The eWIT token is a custodial, wrapped version of the Witnet coin managed by the
     cmcId: "11678",
     tags: ["AMM"],
     chains: ["Stellar"],
-    module: "lumenswap/index.js",
+    //module: "lumenswap/index.js", removed tvl in favor of Stellar AMM
+    module: "dummy.js",
     twitter: "lumenswap",
     listedAt: 1637392233,
     github: ["lumenswap"],

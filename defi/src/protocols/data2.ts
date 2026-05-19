@@ -5641,6 +5641,9 @@ const data2: Protocol[] = [
     ],
     parentProtocol: "parent#clearpool",
     listedAt: 1649674184,
+    dimensions: {
+      fees: "clearpool",
+    },
   },
   {
     id: "1636",
@@ -8600,13 +8603,13 @@ const data2: Protocol[] = [
   },
   {
     id: "1773",
-    name: "BendDAO Lending",
+    name: "BendDAO Lending V1",
     address: "0x0d02755a5700414B26FF040e1dE35D337DF56218",
     symbol: "BEND",
     url: "https://www.benddao.xyz",
     description: "BendDAO is a decentralized peer-to-pool based NFT liquidity protocol.",
     chain: "Ethereum",
-    logo: `${baseIconsUrl}/benddao-lending.png`,
+    logo: `${baseIconsUrl}/benddao-lending-v1.jpg`,
     audits: "2",
     gecko_id: null,
     cmcId: null,
@@ -8618,6 +8621,9 @@ const data2: Protocol[] = [
     audit_links: ["https://www.certik.com/projects/bend-dao", "https://www.verilog.solutions/audits/BendDAO"],
     parentProtocol: "parent#benddao",
     listedAt: 1652990010,
+    dimensions: {
+      fees: "benddao-lending-v1",
+    }
   },
   {
     id: "1774",
@@ -11005,7 +11011,7 @@ const data2: Protocol[] = [
     audits: "1",
     gecko_id: null,
     cmcId: null,
-    category: "Derivatives",
+    category: "Yield",
     chains: ["Polygon", "Optimism", "Arbitrum"],
     oraclesBreakdown: [ { name: "Chainlink", type: "Primary", proof: []} ],
     module: "toros/index.js",

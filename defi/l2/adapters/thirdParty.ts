@@ -5,8 +5,9 @@ import { allChainKeys } from "../constants";
 import { bridgedTvlMixedCaseChains } from "../../src/utils/shared/constants";
 import { additional, excluded } from "./manual";
 import _ from "lodash";
-import { cachedFetch } from "@defillama/sdk/build/util/cache";
-import runInPromisePool from "@defillama/sdk/build/util/promisePool";
+
+import * as sdk from "@defillama/sdk";
+const { cachedFetch } = sdk.cache;
 
 const addresses: { [chain: Chain]: Address[] } = {};
 allChainKeys.map((c: string) => (addresses[c] = []));
@@ -195,7 +196,7 @@ const adapters = { axelar, wormhole, celer, hyperlane, layerzero, flow, unit };
 const filteredAddresses: { [chain: Chain]: Address[] } = {};
 
 const tokenAddresses = _.once(async (): Promise<{ [chain: Chain]: Address[] }> => {
-  await runInPromisePool({
+  await sdk.util.runInPromisePool({
     items: Object.entries(adapters),
     concurrency: 5,
     processor: async ([key, adapter]: any) => {

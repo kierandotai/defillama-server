@@ -294,6 +294,7 @@ export const adaptersRepoChainsJson: string[] = [
   "persistence",
   "pg",
   "pgn",
+  "pharos",
   "planq",
   "plume",
   "plume_mainnet",

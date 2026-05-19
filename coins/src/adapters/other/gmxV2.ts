@@ -35,21 +35,22 @@ async function getTokenPrices(chain: string, timestamp: number) {
 
   const configs = config[chain]
   const writes: Write[] = [];
-  for (const _config of configs)
-    await _getWrites(_config)
+  await Promise.all(configs.map((_config: any) => _getWrites(_config)))
 
   return writes
 
   async function _getWrites({ eventEmitter, fromBlock, gmReader, tickers }: any = {}) {
-    const logs = await getLogs({
-      api,
-      target: eventEmitter,
-      topics: ['0x137a44067c8961cd7e1d876f4754a5a3a75989b4552f1843fc69c3b372def160', '0xad5d762f1fc581b3e684cf095d93d3a2c10754f60124b09bec8bf3d76473baaf',], // need both else too many logs
-      eventAbi: abis.EventLog1,
-      onlyArgs: true,
-      fromBlock,
-    })
-    const tickerData = await axios.get(tickers)
+    const [logs, tickerData] = await Promise.all([
+      getLogs({
+        api,
+        target: eventEmitter,
+        topics: ['0x137a44067c8961cd7e1d876f4754a5a3a75989b4552f1843fc69c3b372def160', '0xad5d762f1fc581b3e684cf095d93d3a2c10754f60124b09bec8bf3d76473baaf',], // need both else too many logs
+        eventAbi: abis.EventLog1,
+        onlyArgs: true,
+        fromBlock,
+      }),
+      axios.get(tickers),
+    ])
     const tickerDataObj = Object.fromEntries(tickerData.data.map((i: any) => [i.tokenAddress.toLowerCase(), i]))
 
     const underlyingTokens = logs.map((i: any) => {

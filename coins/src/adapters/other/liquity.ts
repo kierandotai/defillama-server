@@ -18,20 +18,8 @@ const contracts: {
 };
 
 const abi: { [name: string]: any } = {
-  getRedemptionRate: {
-    name: "getRedemptionRate",
-    type: "function",
-    inputs: [],
-    outputs: [{ name: "", type: "uint256", internalType: "uint256" }],
-    stateMutability: "view",
-  },
-  fetchPrice: {
-    name: "fetchPrice",
-    type: "function",
-    inputs: [],
-    outputs: [{ name: "", type: "uint256", internalType: "uint256" }],
-    stateMutability: "view",
-  },
+  getRedemptionRate: 'uint256:getRedemptionRate',
+  fetchPrice: 'uint256:fetchPrice',
 };
 
 async function getTokenPrice(chain: string, timestamp: number) {

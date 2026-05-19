@@ -1412,6 +1412,7 @@ const data5: Protocol[] = [
     chains: ["Hyperliquid L1"],
     module: "dummy.js",
     twitter: "liminalmoney",
+    parentProtocol: "parent#liminal",
     dimensions: {
       fees: "liminal-perps",
       derivatives: "liminal-perps",
@@ -1441,14 +1442,14 @@ const data5: Protocol[] = [
   },
   {
     id: "6955",
-    name: "Bullpen",
+    name: "Bullpen Perps",
     address: null,
     symbol: "-",
     url: "https://bullpen.fi/@defillama",
     referralUrl: "https://bullpen.fi/@defillama",
     description: "Trade anything onchain.  Powered by Hyperliquid, Solana, and (Redacted).",
     chain: "Hyperliquid L1",
-    logo: `${baseIconsUrl}/bullpen.jpg`,
+    logo: `${baseIconsUrl}/bullpen-perps.jpg`,
     audits: "0",
     gecko_id: null,
     cmcId: null,
@@ -1456,6 +1457,7 @@ const data5: Protocol[] = [
     chains: ["Hyperliquid L1"],
     module: "dummy.js",
     twitter: "BullpenFi",
+    parentProtocol: "parent#bullpen",
     dimensions: {
       fees: "bullpenfi-perps",
       derivatives: "bullpenfi-perps",
@@ -1629,6 +1631,13 @@ const data5: Protocol[] = [
     category: "Onchain Capital Allocator",
     chains: ["Ethereum"],
     audit_links: ["https://docs.makina.finance/concepts/security/audits"],
+    oraclesBreakdown: [
+      {
+        name: "Chainlink",
+        type: "Primary",
+        proof: ["https://docs.makina.finance/concepts/oracle-registry", "https://docs.makina.finance/contracts/core/interfaces/IOracleRegistry.sol/interface.IOracleRegistry", "https://dune.com/makinafi/makina#oracle-registry"],
+      },
+    ],
     module: "makina-finance/index.js",
     twitter: "makinafi",
     github: ["MakinaHQ"],
@@ -3175,6 +3184,14 @@ const data5: Protocol[] = [
     module: "townsquare/index.js",
     twitter: "TownSquarexyz",
     listedAt: 1764002871,
+    warningBanners: [
+      {
+        message:
+          "This protocol includes/provides unproductive positions that may contribute to inflated metrics. Be safe.",
+        level: "alert",
+        until: "2026-7-12",
+      },
+    ],
   },
   {
     id: "7029",
@@ -3809,6 +3826,9 @@ const data5: Protocol[] = [
       "https://github.com/slowmist/Knowledge-Base/blob/master/open-report-V2/smart-contract/Mu%20Protocol%20-%20SlowMist%20Audit%20Report.pdf",
     ],
     listedAt: 1764288644,
+    dimensions: {
+      fees: "mu-digital",
+    },
   },
   {
     id: "7056",
@@ -5736,24 +5756,27 @@ const data5: Protocol[] = [
     ],
     listedAt: 1765911989,
   },
-  // { // totalSupply RWA adapter, RWA has no liquidity or price data and is on RWA dash 
-  //   id: "7144",
-  //   name: "Pleasing Gold",
-  //   address: "arbitrum:0x3e76BB02286BFeAA89DD35f11253f2CbCE634F91",
-  //   symbol: "PGOLD",
-  //   url: "https://www.pleasinggold.com/",
-  //   description: "Pleasing Gold (PGOLD) is a fully gold-backed digital asset. Each token represents 1 troy ounce of 99.99% purity physical gold that meets LBMA (London Bullion Market Association) standards. PGOLD not only provides you ownership of real gold, but also unlocks new utility, mobility, and earning potential for one of the world’s most enduring assets.",
-  //   chain: "Arbitrum",
-  //   logo: `${baseIconsUrl}/pleasing-gold.jpg`,
-  //   audits: "0",
-  //   gecko_id: null,
-  //   cmcId: null,
-  //   tags: ["Commodities"],
-  //   chains: ["Arbitrum"],
-  //   module: "pleasing-gold/index.js",
-  //   twitter: "PleasingGolden",
-  //   listedAt: 1765912421,
-  // },
+  {  
+    id: "7144",
+    name: "Pleasing Gold",
+    address: "arbitrum:0x3e76BB02286BFeAA89DD35f11253f2CbCE634F91",
+    symbol: "PGOLD",
+    url: "https://www.pleasinggold.com/",
+    description: "Pleasing Gold (PGOLD) is a fully gold-backed digital asset. Each token represents 1 troy ounce of 99.99% purity physical gold that meets LBMA (London Bullion Market Association) standards. PGOLD not only provides you ownership of real gold, but also unlocks new utility, mobility, and earning potential for one of the world’s most enduring assets.",
+    chain: "Arbitrum",
+    logo: `${baseIconsUrl}/pleasing-gold.jpg`,
+    audits: "0",
+    gecko_id: null,
+    cmcId: null,
+    tags: ["Commodities"],
+    chains: ["Arbitrum"],
+    module: "dummy.js",// pleasing-gold, totalSupply RWA adapter, RWA has no liquidity or price data and is on RWA dash
+    twitter: "PleasingGolden",
+    listedAt: 1765912421,
+    dimensions: {
+      fees: "pleasing-gold",
+    },
+  },
   {
     id: "7145",
     name: "CROSS Rewards",
@@ -11591,7 +11614,10 @@ const data5: Protocol[] = [
     chains: ["Citrea"],
     module: "zentra/index.js",
     twitter: "ZentraFinance",
-    listedAt: 1771346982
+    listedAt: 1771346982,
+    dimensions: {
+      fees: "zentra",
+    },
   },
   {
     id: "7420",
@@ -12611,6 +12637,9 @@ const data5: Protocol[] = [
     module: "hyperlane/index.js",
     twitter: "hyperlane",
     listedAt: 1772126783,
+    dimensions: {
+      fees: "hyperlane",
+    },
   },
   {
     id: "7469",
@@ -14197,7 +14226,11 @@ const data5: Protocol[] = [
     chains: ["QIE"],
     module: "qie-dex/index.js",
     twitter: "dex_qi",
-    listedAt: 1773568599
+    listedAt: 1773568599,
+    dimensions: {
+      fees: "qie-dex",
+      dexs: "qie-dex",
+    }
   },
   {
     id: "7546",
@@ -14508,7 +14541,7 @@ const data5: Protocol[] = [
     audits: "0",
     gecko_id: null,
     cmcId: null,
-    category: "Prediction Market",
+    tags: ["Polymarket Builder"],
     chains: ["Polygon"],
     module: "dummy.js",
     twitter: "rainbowdotme",
@@ -15215,7 +15248,6 @@ const data5: Protocol[] = [
     module: "dummy.js",
     twitter: "Arbitrageincept",
     listedAt: 1774634365,
-    deadUrl: true,
     dimensions: {
       fees: "arbitrage-inc",
       aggregators: "arbitrage-inc",
@@ -16420,7 +16452,12 @@ const data5: Protocol[] = [
     twitter: "saturn_credit",
     listedAt: 1775766807,
     dimensions: {
-      fees: "saturn-protocol",
+      fees: {
+        adapter: "saturn-protocol",
+        genuineSpikes: [
+          ["2026-05-15", "STRC price drop due to ex-dividend event"],
+        ]
+      }
     }
   },
   {

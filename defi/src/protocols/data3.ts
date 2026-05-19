@@ -1803,14 +1803,15 @@ const data3_0: Protocol[] = [
     listedAt: 1680810692,
     github: ["aktionariat"],
     dimensions: {
-      dexs: "aktionariat"
+		dexs: "aktionariat",
+		fees: "aktionariat",
     }
   },
   {
     id: "2783",
     name: "Scrub Invest",
-    address: null,
-    symbol: "-",
+    address: "kava:0x990e157fC8a492c28F5B50022F000183131b9026",
+    symbol: "LION",
     url: "https://invest.scrub.money/",
     description:
       "Scrub Invest allows investors to leverage the power of the Scrub Invest Smart Contracts in order to earn passive income from their crypto assets. Powered by Scrub Money and currently available on Kava EVM Blockchain, with many more to come. Join Scrub Invest today and experience a whole new, effortless way of investing!",
@@ -15059,7 +15060,7 @@ const data3_0: Protocol[] = [
     audits: "0",
     gecko_id: "aark-digital",
     cmcId: "32217",
-    tags: ["Orderly Builder"],
+    category: "Derivatives",
     chains: ["Arbitrum"],
     module: "aark/index.js",
     twitter: "Aark_Digital",
@@ -27280,6 +27281,9 @@ const data3_1: Protocol[] = [
     github: ["StackingDAO"],
     audit_links: ["https://github.com/StackingDAO/app"],
     listedAt: 1702999258,
+    dimensions: {
+      fees: "stackingdao"
+    }
   },
   {
     id: "3935",
@@ -27538,7 +27542,12 @@ const data3_1: Protocol[] = [
     parentProtocol: "parent#kelp-dao",
     listedAt: 1703173957,
     dimensions: {
-      fees: "kelp"
+      fees: {
+        adapter: "kelp",
+        genuineSpikes: [
+          ["2026-05-15", "rsETH protocol operations fully resumed and exchange rate updated"], //https://x.com/KelpDAO/status/2055307283647844495
+        ]
+      }
     }
   },
   {
@@ -29775,7 +29784,10 @@ const data3_1: Protocol[] = [
     listedAt: 1705662884,
     dimensions: {
       fees: "sudofinance",
-      derivatives: "sudofinance"
+      derivatives: {
+        adapter: "sudofinance",
+        genuineSpikes: [["2026-05-13", "-"]]
+      }
     }
   },
   {
@@ -31259,7 +31271,8 @@ const data3_1: Protocol[] = [
     listedAt: 1707227945,
     dimensions: {
       fees: "flashtrade",
-      derivatives: "flashtrade"
+      derivatives: "flashtrade",
+      "open-interest": "flashtrade-oi"
     }
   },
   {
@@ -38478,6 +38491,9 @@ const data3_2: Protocol[] = [
     twitter: "Fathom_fi",
     parentProtocol: "parent#fathom",
     listedAt: 1712156169,
+    dimensions: {
+      fees: "fathom-cdp"
+    }
   },
   {
     id: "4425",
@@ -45349,16 +45365,16 @@ const data3_3: Protocol[] = [
   },
   {
     id: "4738",
-    name: "Tradoor",
+    name: "Tradoor TON",
     address: "bsc:0x9123400446a56176eb1b6be9ee5cf703e409f492",
     symbol: "TRADOOR",
     url: "https://tradoor.io",
     description:
       "Tradoor is the industry’s first NDMM exchange - using smart math and safety measures to allow people to trade with confidence - protecting traders, LPs, and the protocol from unexpected market changes.",
     chain: "TON",
-    logo: `${baseIconsUrl}/tradoor.png`,
+    logo: `${baseIconsUrl}/tradoor-ton.jpg`,
     audits: "2",
-    gecko_id: "tradoor",
+    gecko_id: null,
     cmcId: null,
     category: "Derivatives",
     chains: ["TON"],
@@ -45367,7 +45383,6 @@ const data3_3: Protocol[] = [
     // https://docs.tradoor.io/tradoor-user-guide-v2/others/oracle-data
     oraclesBreakdown: [ { name: "Pyth", type: "Primary", proof: [] } ],
     audit_links: ["https://docs.tradoor.io/audits"],
-    github: ["TonTradoor"],
     listedAt: 1717758106,
     dimensions: {
       derivatives: "tradoor"
@@ -48367,6 +48382,9 @@ const data3_3: Protocol[] = [
       }
     ],
     listedAt: 1720775830,
+    dimensions: {
+      fees: "midas-rwa",
+    },
   },
   {
     id: "4874",
@@ -48486,6 +48504,9 @@ const data3_3: Protocol[] = [
     twitter: "ClearpoolFin",
     parentProtocol: "parent#clearpool",
     listedAt: 1720786477,
+    dimensions: {
+      fees: "clearpool-rwa",
+    },
   },
   {
     id: "4880",
@@ -57318,7 +57339,10 @@ const data3_3: Protocol[] = [
       "https://github.com/plumenetwork/contracts/blob/main/staking/audit/slowmist.pdf",
       "https://github.com/plumenetwork/contracts/blob/main/staking/audit/slowmist2.pdf"
     ],
-    listedAt: 1729962607
+    listedAt: 1729962607,
+    dimensions: {
+      fees: "nest-credit",
+    },
   },
   {
     id: "5285",
@@ -62274,7 +62298,10 @@ const data3_3: Protocol[] = [
     module: "alphafi-stsui/index.js",
     twitter: "stSUI_AlphaFi",
     parentProtocol: "parent#alphafi",
-    listedAt: 1734441386
+    listedAt: 1734441386,
+    dimensions: {
+      fees: "alphafi"
+    }
   },
   {
     id: "5512",

@@ -1,0 +1,363 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Metadata Update | DefiLlama</title>
+<style>
+:root {
+  --bg-primary: #0d1117;
+  --bg-secondary: #161b22;
+  --bg-tertiary: #21262d;
+  --border-color: #30363d;
+  --text-primary: #e6edf3;
+  --text-secondary: #8b949e;
+  --accent: #58a6ff;
+  --accent-hover: #79b8ff;
+  --success: #3fb950;
+  --error: #f85149;
+  --warning: #d29922;
+}
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  line-height: 1.6;
+  min-height: 100vh;
+}
+.container { max-width: 800px; margin: 0 auto; padding: 40px 20px; }
+header { text-align: center; margin-bottom: 40px; }
+header h1 {
+  font-size: 2rem; margin-bottom: 10px;
+  background: linear-gradient(135deg, var(--accent), #a371f7);
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+header p { color: var(--text-secondary); font-size: 1rem; }
+.form-card {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  padding: 30px;
+  margin-bottom: 20px;
+}
+.form-section { margin-bottom: 30px; }
+.form-section:last-child { margin-bottom: 0; }
+.section-title {
+  font-size: 1.1rem; font-weight: 600;
+  margin-bottom: 20px; padding-bottom: 10px;
+  border-bottom: 1px solid var(--border-color);
+  display: flex; align-items: center; gap: 10px;
+}
+.section-title .icon { font-size: 1.2rem; }
+.form-group { margin-bottom: 20px; }
+.form-group:last-child { margin-bottom: 0; }
+label { display: block; margin-bottom: 8px; font-weight: 500; color: var(--text-primary); }
+label .required { color: var(--error); margin-left: 2px; }
+label .hint {
+  font-weight: 400; color: var(--text-secondary);
+  font-size: 0.85rem; display: block; margin-top: 4px;
+}
+input[type="text"],
+input[type="url"],
+input[type="email"],
+textarea,
+select {
+  width: 100%; padding: 12px 14px;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  color: var(--text-primary);
+  font-size: 0.95rem;
+  font-family: inherit;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+input:focus, textarea:focus, select:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(88, 166, 255, 0.15);
+}
+input::placeholder, textarea::placeholder {
+  color: var(--text-secondary); opacity: 0.7;
+}
+textarea { min-height: 120px; resize: vertical; }
+
+.checkbox-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 8px;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  padding: 14px;
+}
+.checkbox-item {
+  display: flex; align-items: center; gap: 8px;
+  padding: 8px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background 0.15s;
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+  user-select: none;
+  margin: 0;
+}
+.checkbox-item:hover {
+  background: rgba(88,166,255,0.08);
+  color: var(--text-primary);
+}
+.checkbox-item input[type="checkbox"] {
+  width: 16px; height: 16px;
+  accent-color: var(--accent);
+  cursor: pointer;
+  margin: 0;
+  flex-shrink: 0;
+}
+.checkbox-item input[type="checkbox"]:checked + span {
+  color: var(--accent);
+  font-weight: 500;
+}
+
+.other-field-wrap {
+  display: none;
+  margin-top: 12px;
+}
+.other-field-wrap.show { display: block; }
+
+.submit-btn {
+  width: 100%; padding: 16px;
+  background: linear-gradient(135deg, var(--accent), #a371f7);
+  border: none; border-radius: 10px;
+  color: white; font-size: 1.1rem; font-weight: 600;
+  cursor: pointer; transition: transform 0.2s, box-shadow 0.2s;
+}
+.submit-btn:hover { transform: translateY(-2px); box-shadow: 0 5px 20px rgba(88,166,255,0.3); }
+.submit-btn:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
+.alert {
+  padding: 15px 20px; border-radius: 8px;
+  margin-bottom: 20px; display: none;
+}
+.alert.success { background: rgba(63,185,80,0.15); border: 1px solid var(--success); color: var(--success); }
+.alert.error { background: rgba(248,81,73,0.15); border: 1px solid var(--error); color: var(--error); }
+.alert.show { display: block; }
+footer { text-align: center; padding: 30px; color: var(--text-secondary); font-size: 0.9rem; }
+footer a { color: var(--accent); text-decoration: none; }
+footer a:hover { text-decoration: underline; }
+</style>
+</head>
+<body>
+<div class="container">
+  <header>
+    <h1>Metadata Update</h1>
+    <p>Request an update to a protocol, chain, or institution listing on DefiLlama</p>
+  </header>
+
+  <div id="alert" class="alert"></div>
+
+  <form id="metadataForm">
+    <div class="form-card">
+      <div class="form-section">
+        <h2 class="section-title"><span class="icon">📝</span> What needs updating?</h2>
+
+        <div class="form-group">
+          <label>Protocol / Chain / Institution <span class="required">*</span>
+            <span class="hint">Name of the listing you want updated</span>
+          </label>
+          <input type="text" name="protocol" required placeholder="e.g., Aave, Ethereum, BlackRock">
+        </div>
+
+        <div class="form-group">
+          <label>Page URL <span class="required">*</span>
+            <span class="hint">Link to the DefiLlama page that needs the update</span>
+          </label>
+          <input type="url" name="pageUrl" required placeholder="https://defillama.com/protocol/...">
+        </div>
+
+        <div class="form-group">
+          <label>Fields to update <span class="required">*</span>
+            <span class="hint">Tick every field that needs to change. You can pick more than one.</span>
+          </label>
+          <div class="checkbox-grid" id="fieldsGrid">
+            <label class="checkbox-item"><input type="checkbox" name="field" value="name"><span>Name</span></label>
+            <label class="checkbox-item"><input type="checkbox" name="field" value="symbol"><span>Symbol / Ticker</span></label>
+            <label class="checkbox-item"><input type="checkbox" name="field" value="logo"><span>Logo</span></label>
+            <label class="checkbox-item"><input type="checkbox" name="field" value="description"><span>Description</span></label>
+            <label class="checkbox-item"><input type="checkbox" name="field" value="category"><span>Category</span></label>
+            <label class="checkbox-item"><input type="checkbox" name="field" value="website"><span>Website</span></label>
+            <label class="checkbox-item"><input type="checkbox" name="field" value="twitter"><span>Twitter / X</span></label>
+            <label class="checkbox-item"><input type="checkbox" name="field" value="github"><span>GitHub</span></label>
+            <label class="checkbox-item"><input type="checkbox" name="field" value="audits"><span>Audits</span></label>
+            <label class="checkbox-item"><input type="checkbox" name="field" value="chains"><span>Listed chains</span></label>
+            <label class="checkbox-item"><input type="checkbox" name="field" value="tokenAddress"><span>Token address</span></label>
+            <label class="checkbox-item"><input type="checkbox" name="field" value="parentProtocol"><span>Parent protocol</span></label>
+            <label class="checkbox-item"><input type="checkbox" name="field" value="other" id="otherCheckbox"><span>Other</span></label>
+          </div>
+          <div class="other-field-wrap" id="otherFieldWrap">
+            <input type="text" name="otherField" placeholder="Which other field? (e.g., tags, methodology)">
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label>Reason for the update <span class="required">*</span>
+            <span class="hint">For each ticked field, briefly explain what should change and (if helpful) what the current value is wrong about. One text area is fine, just be clear which field each note refers to if you ticked several.</span>
+          </label>
+          <textarea name="reason" required placeholder="e.g., Logo: should be the new mark from our Oct 1 rebrand. Twitter: old @aaveaave handle is dead, new one is @aave. Category: should be 'Lending' not 'Yield'."></textarea>
+        </div>
+
+        <div class="form-group">
+          <label>Icon / Logo (optional)
+            <span class="hint">Attach a new icon if you ticked "Logo". PNG or SVG preferred, square, up to 4&nbsp;MB.</span>
+          </label>
+          <input type="file" name="icon" id="iconInput" accept="image/png,image/jpeg,image/webp,image/svg+xml">
+        </div>
+      </div>
+    </div>
+
+    <div class="form-card">
+      <div class="form-section">
+        <h2 class="section-title"><span class="icon">🔗</span> Source & Contact</h2>
+
+        <div class="form-group">
+          <label>Source <span class="required">*</span>
+            <span class="hint">Link(s) to official announcements, docs, websites, or anything else that confirms the new values</span>
+          </label>
+          <textarea name="source" required placeholder="https://blog.example.com/rebrand, https://docs.example.com/..."></textarea>
+        </div>
+
+        <div class="form-group">
+          <label>Contact <span class="required">*</span>
+            <span class="hint">Email, Twitter/X handle, or Telegram so we can reach you if we have questions</span>
+          </label>
+          <input type="text" name="contact" required placeholder="[email protected] or @handle">
+        </div>
+      </div>
+    </div>
+
+    <button type="submit" class="submit-btn" id="submitBtn">Submit Update</button>
+  </form>
+
+  <footer>
+    <p>Reporting incorrect data (TVL, fees, volume, etc.)? Use the <a href="https://defillama.com/report-error">report error</a> form instead.</p>
+    <p style="margin-top: 8px;">Questions? Reach out on <a href="https://discord.defillama.com" target="_blank">Discord</a> or <a href="https://twitter.com/defillama" target="_blank">Twitter</a>.</p>
+  </footer>
+</div>
+
+<script>
+const form = document.getElementById('metadataForm');
+const alertEl = document.getElementById('alert');
+const submitBtn = document.getElementById('submitBtn');
+const fieldsGrid = document.getElementById('fieldsGrid');
+const otherCheckbox = document.getElementById('otherCheckbox');
+const otherFieldWrap = document.getElementById('otherFieldWrap');
+const iconInput = document.getElementById('iconInput');
+const MAX_ICON_BYTES = 4 * 1024 * 1024;
+let isSubmitting = false;
+
+function readFileAsBase64(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const result = reader.result || '';
+      const comma = result.indexOf(',');
+      resolve(comma >= 0 ? result.slice(comma + 1) : '');
+    };
+    reader.onerror = () => reject(reader.error || new Error('Could not read file'));
+    reader.readAsDataURL(file);
+  });
+}
+
+function showAlert(message, type) {
+  alertEl.textContent = message;
+  alertEl.className = 'alert show ' + type;
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+// Reveal/hide the "other" free-text field when its checkbox toggles
+otherCheckbox.addEventListener('change', () => {
+  otherFieldWrap.classList.toggle('show', otherCheckbox.checked);
+  if (!otherCheckbox.checked) {
+    otherFieldWrap.querySelector('input').value = '';
+  }
+});
+
+function getSelectedFields() {
+  return Array.from(fieldsGrid.querySelectorAll('input[name="field"]:checked')).map((el) => el.value);
+}
+
+form.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  if (isSubmitting) return;
+
+  const selectedFields = getSelectedFields();
+
+  if (selectedFields.length === 0) {
+    showAlert('Please tick at least one field to update.', 'error');
+    return;
+  }
+
+  const formData = new FormData(form);
+  const otherField = (formData.get('otherField') ?? '').toString().trim();
+
+  if (selectedFields.includes('other') && !otherField) {
+    showAlert('You ticked "Other" — please specify which field.', 'error');
+    return;
+  }
+
+  const payload = {
+    protocol: (formData.get('protocol') ?? '').toString().trim(),
+    pageUrl: (formData.get('pageUrl') ?? '').toString().trim(),
+    fields: selectedFields,
+    otherField: selectedFields.includes('other') ? otherField : '',
+    reason: (formData.get('reason') ?? '').toString().trim(),
+    source: (formData.get('source') ?? '').toString().trim(),
+    contact: (formData.get('contact') ?? '').toString().trim(),
+    submittedAt: new Date().toISOString()
+  };
+
+  const iconFile = iconInput.files && iconInput.files[0];
+  if (iconFile) {
+    if (iconFile.size > MAX_ICON_BYTES) {
+      showAlert('Icon is too large (max 4 MB). Please pick a smaller file.', 'error');
+      return;
+    }
+    try {
+      payload.icon = {
+        name: iconFile.name,
+        type: iconFile.type || 'application/octet-stream',
+        size: iconFile.size,
+        dataBase64: await readFileAsBase64(iconFile)
+      };
+    } catch (err) {
+      showAlert('Could not read the icon file: ' + (err.message || 'unknown error'), 'error');
+      return;
+    }
+  }
+
+  isSubmitting = true;
+  submitBtn.disabled = true;
+  submitBtn.textContent = 'Submitting...';
+
+  try {
+    const res = await fetch('/metadata-update/api/submit', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+
+    if (!res.ok) throw new Error('Submission failed (' + res.status + ')');
+
+    showAlert('Thanks! Your request has been submitted and will be reviewed manually.', 'success');
+    form.reset();
+    otherFieldWrap.classList.remove('show');
+  } catch (err) {
+    showAlert('Something went wrong: ' + (err.message || 'unknown error') + '. Please try again or reach out on Discord.', 'error');
+  } finally {
+    isSubmitting = false;
+    submitBtn.disabled = false;
+    submitBtn.textContent = 'Submit Update';
+  }
+});
+</script>
+</body>
+</html>

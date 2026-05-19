@@ -18,7 +18,7 @@ export async function xaue(timestamp: number = 0): Promise<Write[]> {
   checkOracleFresh(updatedAt, {
     timestamp,
     label: "XAUE",
-    maxAgeSeconds: 10 * 24 * 60 * 60, // XAUE oracle's published validity window is 10 days
+    maxAgeSeconds: 30 * 24 * 60 * 60, // XAUE oracle's published validity window is 30 days
   });
   const rate = Number(latestPrice) / 1e18;
 

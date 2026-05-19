@@ -8,6 +8,8 @@ import { getRecordClosestToTimestamp } from "./utils/shared/getRecordClosestToTi
 import { quantisePeriod } from "./utils/timestampUtils";
 import { getBasicCoins } from "./utils/getCoinsUtils";
 import { lowercaseAddress } from "./utils/processCoin";
+
+// WARNING: changing this breaks it
 import { runInPromisePool } from "@defillama/sdk/build/generalUtil";
 
 function generateTimestamps(

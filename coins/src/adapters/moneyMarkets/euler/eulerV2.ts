@@ -7,7 +7,13 @@ import { getCurrentUnixTimestamp } from "../../../utils/date";
 import { getApi } from "../../utils/sdk";
 
 const sdk = require("@defillama/sdk");
-const vaultAbi = require("./vault.abi.json");
+const vaultAbi = {
+  "dToken": "address:dToken",
+  "symbol": "string:symbol",
+  "totalAssets": "uint256:totalAssets",
+  "asset": "address:asset",
+  "convertToAssets": "function convertToAssets(uint256 shares) view returns (uint256)",
+}
 
 interface Market {
   address: string;
@@ -58,7 +64,7 @@ async function getEulerV2Tokens(
         target: address,
         params: [],
       })),
-      abi: vaultAbi.find((m: any) => m.name === "asset"),
+      abi: vaultAbi.asset,
       permitFailure: true,
     }),
     api.multiCall({
@@ -66,7 +72,7 @@ async function getEulerV2Tokens(
         target: address,
         params: [sdk.util.convertToBigInt(1e18).toString()],
       })),
-      abi: vaultAbi.find((m: any) => m.name === "convertToAssets"),
+      abi: vaultAbi.convertToAssets,
       permitFailure: true,
     }),
     api.multiCall({
@@ -74,7 +80,7 @@ async function getEulerV2Tokens(
         target: address,
         params: [],
       })),
-      abi: vaultAbi.find((m: any) => m.name === "symbol"),
+      abi: vaultAbi.symbol,
       permitFailure: true,
     }),
     api.multiCall({
@@ -82,21 +88,21 @@ async function getEulerV2Tokens(
         target: address,
         params: [],
       })),
-      abi: vaultAbi.find((m: any) => m.name === "dToken"),
+      abi: vaultAbi.dToken,
       permitFailure: true,
     }),
     api.multiCall({
       calls: vaultAddresses.map((address: any) => ({
         target: address,
       })),
-      abi: vaultAbi.find((m: any) => m.name === "totalAssets"),
+      abi: vaultAbi.totalAssets,
       permitFailure: true,
     }),
     threeDaysAgoApi.multiCall({
       calls: vaultAddresses.map((address: any) => ({
         target: address,
       })),
-      abi: vaultAbi.find((m: any) => m.name === "totalAssets"),
+      abi: vaultAbi.totalAssets,
       permitFailure: true,
     }),
   ]);

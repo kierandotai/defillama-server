@@ -4,21 +4,25 @@ const path = require('path');
 
 const port = process.env.SUBMISSION_FORMS_PORT || 5001;
 
-// ── Discord webhook (optional) ─────────────────────────────────────────────────
+// ── Discord webhooks (optional) ────────────────────────────────────────────────
 const DEFAULT_DISCORD_WEBHOOK_URL = process.env.DEFAULT_DISCORD_WEBHOOK_URL;
 const DISCORD_WEBHOOK_URL = process.env.RWA_SUBMISSION_DISCORD_WEBHOOK || DEFAULT_DISCORD_WEBHOOK_URL;
+const METADATA_UPDATE_DISCORD_WEBHOOK_URL = process.env.METADATA_UPDATE_DISCORD_WEBHOOK || DEFAULT_DISCORD_WEBHOOK_URL;
 
 if (!DISCORD_WEBHOOK_URL) {
-    console.warn('WARNING: RWA_SUBMISSION_DISCORD_WEBHOOK not set. Submissions will be logged only.');
+    console.warn('WARNING: RWA_SUBMISSION_DISCORD_WEBHOOK not set. RWA submissions will be logged only.');
+}
+if (!METADATA_UPDATE_DISCORD_WEBHOOK_URL) {
+    console.warn('WARNING: METADATA_UPDATE_DISCORD_WEBHOOK not set. Metadata update submissions will be logged only.');
 }
 
 // ── Shared helpers ─────────────────────────────────────────────────────────────
-function parseBody(req) {
+function parseBody(req, maxBytes = 1e6) {
     return new Promise((resolve, reject) => {
         let body = '';
         req.on('data', chunk => {
             body += chunk.toString();
-            if (body.length > 1e6) { req.destroy(); reject(new Error('Request body too large')); }
+            if (body.length > maxBytes) { req.destroy(); reject(new Error('Request body too large')); }
         });
         req.on('end', () => {
             try { resolve(JSON.parse(body)); }
@@ -43,14 +47,24 @@ function sendHtml(res, html) {
     res.end(html);
 }
 
-async function postToDiscord(webhookUrl, payload) {
+async function postToDiscord(webhookUrl, payload, files) {
     if (!webhookUrl) return true;
     try {
-        const r = await fetch(webhookUrl, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload),
-        });
+        let body, headers;
+        if (files && files.length) {
+            const fd = new FormData();
+            fd.append('payload_json', JSON.stringify(payload));
+            for (let i = 0; i < files.length; i++) {
+                const f = files[i];
+                fd.append(`files[${i}]`, new Blob([f.data], { type: f.type || 'application/octet-stream' }), f.name);
+            }
+            body = fd;
+            headers = undefined; // let fetch set the multipart boundary
+        } else {
+            body = JSON.stringify(payload);
+            headers = { 'Content-Type': 'application/json' };
+        }
+        const r = await fetch(webhookUrl, { method: 'POST', headers, body });
         if (!r.ok) { console.error('Discord webhook error:', r.status, await r.text()); return false; }
         return true;
     } catch (e) { console.error('Error sending to Discord:', e); return false; }
@@ -129,6 +143,57 @@ function formatRwaBatchEmbed(tokens) {
     return { embeds: [{ title: `🆕 RWA Batch Submission (${tokens.length} tokens): ${tickers}`, color: 0x58a6ff, fields, footer: { text: `Submitted at ${new Date().toISOString()}` } }] };
 }
 
+// ── Metadata Update: Discord embed ─────────────────────────────────────────────
+function formatMetadataUpdateEmbed(data, iconFilename) {
+    const fieldsList = Array.isArray(data.fields) ? data.fields.slice() : [];
+    const otherField = (data.otherField || '').trim();
+    if (otherField) {
+        const idx = fieldsList.indexOf('other');
+        if (idx >= 0) fieldsList[idx] = `other (${otherField})`;
+    }
+    const fieldsStr = fieldsList.length ? fieldsList.join(', ') : 'N/A';
+
+    const fields = [
+        { name: '📋 Listing',         value: `**Name:** ${data.protocol || 'N/A'}\n**Page:** ${data.pageUrl || 'N/A'}`, inline: false },
+        { name: '✏️ Fields to update', value: fieldsStr, inline: false },
+        { name: '💬 Reason',          value: (data.reason || 'N/A').slice(0, 1024), inline: false },
+        { name: '🔗 Source',          value: (data.source || 'N/A').slice(0, 1024), inline: false },
+        { name: '📧 Contact',         value: data.contact || 'N/A', inline: false },
+    ];
+    if (iconFilename) fields.push({ name: '🖼️ Icon', value: `Attached: \`${iconFilename}\``, inline: false });
+
+    const embed = {
+        title: `📝 Metadata Update Request: ${data.protocol || 'Unknown'}`,
+        color: 0xd29922,
+        fields,
+        footer: { text: `Submitted at ${new Date().toISOString()}` },
+    };
+    if (iconFilename) embed.thumbnail = { url: `attachment://${iconFilename}` };
+    return { embeds: [embed] };
+}
+
+function validateMetadataUpdate(data) {
+    if (!data.protocol || typeof data.protocol !== 'string') return { valid: false, error: 'Protocol/chain/institution name is required' };
+    if (!data.pageUrl  || typeof data.pageUrl  !== 'string') return { valid: false, error: 'Page URL is required' };
+    if (!Array.isArray(data.fields) || data.fields.length === 0) return { valid: false, error: 'At least one field must be selected' };
+    if (!data.reason   || typeof data.reason   !== 'string') return { valid: false, error: 'Reason is required' };
+    if (!data.source   || typeof data.source   !== 'string') return { valid: false, error: 'Source is required' };
+    if (!data.contact  || typeof data.contact  !== 'string') return { valid: false, error: 'Contact is required' };
+    if (data.icon) {
+        if (typeof data.icon !== 'object' || !data.icon.dataBase64 || typeof data.icon.dataBase64 !== 'string') {
+            return { valid: false, error: 'Icon attachment is malformed' };
+        }
+        if (data.icon.size && data.icon.size > 4 * 1024 * 1024) return { valid: false, error: 'Icon exceeds 4 MB limit' };
+    }
+    return { valid: true };
+}
+
+function sanitizeIconFilename(name) {
+    const base = (name || 'icon').toString().split(/[/\\]/).pop();
+    const cleaned = base.replace(/[^a-zA-Z0-9._-]/g, '_').slice(0, 100);
+    return cleaned || 'icon';
+}
+
 // ── Validator ──────────────────────────────────────────────────────────────────
 function validateRwa(data) {
     if (!data.tokenName || typeof data.tokenName !== 'string') return { valid: false, error: 'Token name is required' };
@@ -197,6 +262,50 @@ const server = http.createServer(async (req, res) => {
         return serveFile(res, path.join(__dirname, 'public', 'token-rights.html'));
     }
 
+    // ── Metadata Update ────────────────────────────────────────────────────────
+    if (p === '/metadata-update' && req.method === 'GET') {
+        return serveFile(res, path.join(__dirname, 'public', 'metadata-update.html'));
+    }
+
+    if (p === '/metadata-update/api/submit' && req.method === 'POST') {
+        try {
+            // Allow up to ~7 MB to accommodate a 4 MB icon after base64 inflation.
+            const data = await parseBody(req, 7 * 1024 * 1024);
+            const v = validateMetadataUpdate(data);
+            if (!v.valid) return sendJson(res, 400, { error: v.error });
+
+            let files;
+            let iconFilename;
+            if (data.icon && data.icon.dataBase64) {
+                iconFilename = sanitizeIconFilename(data.icon.name);
+                try {
+                    const buf = Buffer.from(data.icon.dataBase64, 'base64');
+                    if (buf.length > 4 * 1024 * 1024) return sendJson(res, 400, { error: 'Icon exceeds 4 MB limit' });
+                    files = [{ name: iconFilename, type: data.icon.type, data: buf }];
+                } catch {
+                    return sendJson(res, 400, { error: 'Icon attachment could not be decoded' });
+                }
+            }
+
+            console.log('='.repeat(60));
+            console.log('New Metadata Update Request:', new Date().toISOString());
+            console.log('Protocol:', data.protocol);
+            console.log('Fields:', (data.fields || []).join(', '));
+            if (data.contact) console.log('Contact:', data.contact);
+            if (iconFilename) console.log('Icon:', iconFilename, `(${files[0].data.length} bytes)`);
+            console.log('='.repeat(60));
+
+            const sent = await postToDiscord(METADATA_UPDATE_DISCORD_WEBHOOK_URL, formatMetadataUpdateEmbed(data, iconFilename), files);
+            console.log(sent)
+            if (!sent && METADATA_UPDATE_DISCORD_WEBHOOK_URL) console.error('Failed to send metadata update to Discord');
+
+            return sendJson(res, 200, { success: true, message: 'Submission received' });
+        } catch (error) {
+            console.error('Error processing metadata update:', error);
+            return sendJson(res, 500, { error: 'Internal server error' });
+        }
+    }
+
     // ── RWA Submission ─────────────────────────────────────────────────────────
     if (p === '/rwa-submission' && req.method === 'GET') {
         return serveFile(res, path.join(__dirname, 'public', 'rwa-submission.html'));
@@ -261,9 +370,10 @@ const server = http.createServer(async (req, res) => {
 
 server.listen(port, () => {
     console.log(`Submission Forms Server started on port ${port}`);
-    console.log(`  Home:          http://localhost:${port}`);
-    console.log(`  RWA:           http://localhost:${port}/rwa-submission`);
-    console.log(`  Token Rights:  http://localhost:${port}/token-rights (static, submits to Google)`);
+    console.log(`  Home:             http://localhost:${port}`);
+    console.log(`  RWA:              http://localhost:${port}/rwa-submission`);
+    console.log(`  Metadata Update:  http://localhost:${port}/metadata-update`);
+    console.log(`  Token Rights:     http://localhost:${port}/token-rights (static, submits to Google)`);
 });
 
 process.on('SIGINT',  () => { console.log('Shutting down...'); server.close(() => process.exit(0)); });

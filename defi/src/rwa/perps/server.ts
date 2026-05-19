@@ -166,6 +166,8 @@ export function setRoutes(router: HyperExpress.Router): void {
             const target = parsePerpsChartTarget({
                 venue: req.query.venue,
                 assetGroup: req.query.assetGroup,
+                assetClass: req.query.assetClass,
+                excludeAssetClass: req.query.excludeAssetClass,
             });
             if (!target) return errorResponse(res, 'Invalid target query parameters', 400);
 
@@ -186,6 +188,8 @@ export function setRoutes(router: HyperExpress.Router): void {
             const target = parsePerpsChartTarget({
                 venue: req.query.venue,
                 assetGroup: req.query.assetGroup,
+                assetClass: req.query.assetClass,
+                excludeAssetClass: req.query.excludeAssetClass,
             });
             if (!target) return errorResponse(res, 'Invalid target query parameters', 400);
 

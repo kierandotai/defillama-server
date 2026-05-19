@@ -72,8 +72,8 @@ async function getTokenPrices(chain: string, timestamp: number, writes: Write[] 
 
 export async function dinari(timestamp: number = 0): Promise<Write[]> {
   const writes: Write[] = [];
-  for (const chain of Object.keys(config)) {
-    await getTokenPrices(chain, timestamp, writes)
-  }
+  await Promise.all(
+    Object.keys(config).map((chain) => getTokenPrices(chain, timestamp, writes)),
+  );
   return writes;
 }

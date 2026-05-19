@@ -7,12 +7,16 @@ export type PerpsOverviewBreakdown = "venue" | "assetGroup" | "assetClass" | "ba
 export type PerpsChartTarget =
   | { kind: "all" }
   | { kind: "venue"; slug: string }
-  | { kind: "assetGroup"; slug: string };
+  | { kind: "assetGroup"; slug: string }
+  | { kind: "assetClass"; slug: string }
+  | { kind: "excludeAssetClass"; slug: string };
 
 const OVERVIEW_BREAKDOWNS_BY_TARGET = {
   all: new Set<PerpsOverviewBreakdown>(["venue", "assetGroup", "assetClass", "baseAsset"]),
   venue: new Set<PerpsOverviewBreakdown>(["assetGroup", "assetClass", "baseAsset"]),
   assetGroup: new Set<PerpsOverviewBreakdown>(["venue", "assetClass", "baseAsset"]),
+  assetClass: new Set<PerpsOverviewBreakdown>(["venue", "assetGroup", "assetClass", "baseAsset"]),
+  excludeAssetClass: new Set<PerpsOverviewBreakdown>(["venue", "assetGroup", "assetClass", "baseAsset"]),
 };
 
 export function normalizePerpsAssetGroup(value: unknown): string {
@@ -97,6 +101,10 @@ function buildTargetPath(target: PerpsChartTarget): string {
       return `venue/${target.slug}`;
     case "assetGroup":
       return `assetgroup/${target.slug}`;
+    case "assetClass":
+      return `assetclass/${target.slug}`;
+    case "excludeAssetClass":
+      return `excludeassetclass/${target.slug}`;
     default:
       return "all";
   }
@@ -105,13 +113,24 @@ function buildTargetPath(target: PerpsChartTarget): string {
 export function parsePerpsChartTarget(params: {
   venue?: unknown;
   assetGroup?: unknown;
+  assetClass?: unknown;
+  excludeAssetClass?: unknown;
 }): PerpsChartTarget | null {
   const venueSlug = normalizeTargetParam(params.venue);
   const assetGroupSlug = normalizeTargetParam(params.assetGroup);
+  const assetClassSlug = normalizeTargetParam(params.assetClass);
+  const excludeAssetClassSlug = normalizeTargetParam(params.excludeAssetClass);
 
-  if (venueSlug && assetGroupSlug) return null;
+  const targetCount =
+    Number(Boolean(venueSlug)) +
+    Number(Boolean(assetGroupSlug)) +
+    Number(Boolean(assetClassSlug)) +
+    Number(Boolean(excludeAssetClassSlug));
+  if (targetCount > 1) return null;
   if (venueSlug) return { kind: "venue", slug: venueSlug };
   if (assetGroupSlug) return { kind: "assetGroup", slug: assetGroupSlug };
+  if (assetClassSlug) return { kind: "assetClass", slug: assetClassSlug };
+  if (excludeAssetClassSlug) return { kind: "excludeAssetClass", slug: excludeAssetClassSlug };
   return { kind: "all" };
 }
 

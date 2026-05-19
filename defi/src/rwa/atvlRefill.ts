@@ -10,23 +10,41 @@
  * on every invocation.
  */
 
-import { getAllItemsAtTimeS, getLatestProtocolItems, initializeTVLCacheDB } from "../../src/api2/db";
+import { getAllItemsAtTimeS, getLatestProtocolItems, getPGConnection, initializeTVLCacheDB } from "../../src/api2/db";
 import { dailyRawTokensTvl, hourlyRawTokensTvl } from "../utils/getLastRecord";
 import { excludedTvlKeys } from "../../l2/constants";
 import BigNumber from "bignumber.js";
-import { coins, } from "@defillama/sdk";
+import { coins } from "@defillama/sdk";
+import { QueryTypes } from "sequelize";
 import { getCsvData } from "./spreadsheet";
-import { runInPromisePool } from "@defillama/sdk/build/generalUtil";
+
+import * as sdk from "@defillama/sdk";
+const { runInPromisePool } = sdk.util;
+const { cachedFetch } = sdk.cache;
 import { fetchSupplies } from "../../l2/utils";
 import { getChainDisplayName, getChainIdFromDisplayName } from "../utils/normalizeChain";
-import { cachedFetch } from "@defillama/sdk/build/util/cache";
+
 import { getCurrentUnixTimestamp, getTimestampAtStartOfDay, getTimestampAtStartOfDayUTC } from "../utils/date";
 import { storeHistorical, storeMetadata } from "./historical";
 import { initPG, fetchLatestAggregateTotals } from "./db";
-import { fetchEvm, fetchSolana, fetchProvenance, fetchStellar, type WalletEntry } from './balances';
-import { excludedProtocolCategories, protocolIdMap, categoryMap, unsupportedChains, ONCHAIN_MCAP_EQUALS_ACTIVE_PLATFORMS } from "./constants";
+import { fetchEvm, fetchSolana, fetchProvenance, fetchStellar, type WalletEntry } from "./balances";
+import {
+  excludedProtocolCategories,
+  protocolIdMap,
+  categoryMap,
+  unsupportedChains,
+  ONCHAIN_MCAP_EQUALS_ACTIVE_PLATFORMS,
+} from "./constants";
 import { RWA_KEY_MAP } from "./metadataConstants";
-import { createAirtableHeaderToCanonicalKeyMapper, fetchBurnAddresses, formatNumAsNumber, normalizeRwaMetadataForApiInPlace, sortTokensByChain, toFiniteNumberOrNull, toFixedNumber } from "./utils";
+import {
+  createAirtableHeaderToCanonicalKeyMapper,
+  fetchBurnAddresses,
+  formatNumAsNumber,
+  normalizeRwaMetadataForApiInPlace,
+  sortTokensByChain,
+  toFiniteNumberOrNull,
+  toFixedNumber,
+} from "./utils";
 import { sendMessage } from "../utils/discord";
 
 // ── Internal helpers (copied from atvl.ts — identical logic) ────────
@@ -37,8 +55,8 @@ async function getAggregateRawTvls(rwaTokens: { [chain: string]: string[] }, tim
   const rawTvls =
     timestamp == 0
       ? await getLatestProtocolItems(hourlyRawTokensTvl, {
-        filterLast24Hours: true,
-      })
+          filterLast24Hours: true,
+        })
       : await getAllItemsAtTimeS(dailyRawTokensTvl, timestamp);
 
   let aggregateRawTvls: { [pk: string]: { [id: string]: BigNumber } } = {};
@@ -55,6 +73,64 @@ async function getAggregateRawTvls(rwaTokens: { [chain: string]: string[] }, tim
         aggregateRawTvls[pk][protocol.id] = BigNumber(protocol.data[chain][pk]);
       });
     });
+  });
+
+  return aggregateRawTvls;
+}
+
+async function getAggregateRawTvlsForRwaTokens(rwaTokens: { [chain: string]: string[] }, timestamp: number) {
+  if (timestamp == 0) return getAggregateRawTvls(rwaTokens, timestamp);
+
+  const tokenPairs = Object.entries(rwaTokens)
+    .filter(([chain]) => !excludedTvlKeys.includes(chain))
+    .flatMap(([chain, pks]) => [...new Set(pks)].map((pk) => ({ chain, pk })));
+
+  if (tokenPairs.length === 0) return {};
+
+  await initializeTVLCacheDB();
+  const sequelize = getPGConnection();
+  if (!sequelize) throw new Error("TVL cache DB connection is not initialized");
+
+  const replacements: { [key: string]: any } = {
+    timeS: new Date(timestamp * 1000).toISOString().slice(0, 10),
+  };
+  const values = tokenPairs
+    .map(({ chain, pk }, i) => {
+      replacements[`chain${i}`] = chain;
+      replacements[`pk${i}`] = pk;
+      return `(:chain${i}, :pk${i})`;
+    })
+    .join(", ");
+
+  const excludedProtocolIds = Object.keys(categoryMap).filter((id) =>
+    excludedProtocolCategories.includes(categoryMap[id])
+  );
+  const excludedClause = excludedProtocolIds.length ? `AND t.id NOT IN (:excludedProtocolIds)` : "";
+  if (excludedProtocolIds.length) replacements.excludedProtocolIds = excludedProtocolIds;
+
+  const rows = (await sequelize.query(
+    `
+      WITH pairs(chain, pk) AS (VALUES ${values})
+      SELECT
+        t.id,
+        p.pk,
+        t."data"::jsonb #>> ARRAY[p.chain, p.pk] AS amount
+      FROM "dailyRawTokensTvl" t
+      JOIN pairs p
+        ON (t."data"::jsonb ? p.chain)
+       AND ((t."data"::jsonb -> p.chain) ? p.pk)
+      WHERE t."timeS" = :timeS
+        ${excludedClause}
+      ORDER BY t.id
+    `,
+    { replacements, type: QueryTypes.SELECT }
+  )) as { id: string; pk: string; amount: string | null }[];
+
+  const aggregateRawTvls: { [pk: string]: { [id: string]: BigNumber } } = {};
+  rows.forEach(({ id, pk, amount }) => {
+    if (amount == null) return;
+    if (!aggregateRawTvls[pk]) aggregateRawTvls[pk] = {};
+    aggregateRawTvls[pk][id] = BigNumber(amount);
   });
 
   return aggregateRawTvls;
@@ -132,13 +208,15 @@ async function fetchHolderBalances(
     concurrency: 1,
     processor: async (chain: any) => {
       try {
-        if (chain == 'solana') await fetchSolana(timestamp, walletsSortedByChain[chain], tokenToProjectMap, amounts);
-        else if (chain == 'provenance') await fetchProvenance(timestamp, walletsSortedByChain[chain], tokenToProjectMap, amounts);
-        else if (chain == 'stellar') await fetchStellar(timestamp, walletsSortedByChain[chain], tokenToProjectMap, amounts);
+        if (chain == "solana") await fetchSolana(timestamp, walletsSortedByChain[chain], tokenToProjectMap, amounts);
+        else if (chain == "provenance")
+          await fetchProvenance(timestamp, walletsSortedByChain[chain], tokenToProjectMap, amounts);
+        else if (chain == "stellar")
+          await fetchStellar(timestamp, walletsSortedByChain[chain], tokenToProjectMap, amounts);
         else if (unsupportedChains.includes(chain)) return;
         else await fetchEvm(timestamp, chain, walletsSortedByChain[chain], tokenToProjectMap, amounts);
       } catch (e) {
-        if (process.env.DEBUG_ENABLED) console.error(`Failed to fetch balances for ${chain}`)
+        if (process.env.DEBUG_ENABLED) console.error(`Failed to fetch balances for ${chain}`);
       }
     },
   });
@@ -151,9 +229,7 @@ async function getExcludedBalances(
   finalData: { [protocol: string]: { [key: string]: any } },
   tokenToProjectMap: { [token: string]: string }
 ) {
-  const excludedAmounts = await fetchHolderBalances(
-    timestamp, finalData, tokenToProjectMap, 'holdersToRemove', true
-  );
+  const excludedAmounts = await fetchHolderBalances(timestamp, finalData, tokenToProjectMap, "holdersToRemove", true);
 
   return excludedAmounts;
 }
@@ -169,29 +245,41 @@ type FxRateMap = {
 };
 const SECONDS_IN_DAY = 86400;
 let _fxRateMapPromise: Promise<FxRateMap> | null = null;
+
+type StablecoinChainMcap = { [chain: string]: number };
+type StablecoinMcapData = {
+  symbol: string | null;
+  chainMcap: StablecoinChainMcap;
+};
+
 function getFxRateMap(): Promise<FxRateMap> {
   if (!_fxRateMapPromise) {
     _fxRateMapPromise = cachedFetch({
       key: "stablecoin-fx-rates-full",
       endpoint: "https://llama-stablecoins-data.s3.eu-central-1.amazonaws.com/rates/full",
-    }).then((data: any) => {
-      if (!Array.isArray(data) || !data.length) throw new Error("FX rates response unavailable");
-      const sorted = data.slice().sort((a: any, b: any) => a.date - b.date);
-      const sourceByDay = new Map<number, Record<string, number>>();
-      for (const entry of sorted) {
-        sourceByDay.set(getTimestampAtStartOfDayUTC(entry.date), entry.rates);
-      }
-      const firstDay = getTimestampAtStartOfDayUTC(sorted[0].date);
-      const lastDay = getTimestampAtStartOfDayUTC(sorted[sorted.length - 1].date);
-      const byDay = new Map<number, Record<string, number>>();
-      let prev: Record<string, number> | null = null;
-      for (let day = firstDay; day <= lastDay; day += SECONDS_IN_DAY) {
-        const here = sourceByDay.get(day);
-        if (here) prev = here;
-        if (prev) byDay.set(day, prev);
-      }
-      return { byDay, latest: sorted[sorted.length - 1].rates, firstDay, lastDay };
-    }).catch((e) => { _fxRateMapPromise = null; throw e; });
+    })
+      .then((data: any) => {
+        if (!Array.isArray(data) || !data.length) throw new Error("FX rates response unavailable");
+        const sorted = data.slice().sort((a: any, b: any) => a.date - b.date);
+        const sourceByDay = new Map<number, Record<string, number>>();
+        for (const entry of sorted) {
+          sourceByDay.set(getTimestampAtStartOfDayUTC(entry.date), entry.rates);
+        }
+        const firstDay = getTimestampAtStartOfDayUTC(sorted[0].date);
+        const lastDay = getTimestampAtStartOfDayUTC(sorted[sorted.length - 1].date);
+        const byDay = new Map<number, Record<string, number>>();
+        let prev: Record<string, number> | null = null;
+        for (let day = firstDay; day <= lastDay; day += SECONDS_IN_DAY) {
+          const here = sourceByDay.get(day);
+          if (here) prev = here;
+          if (prev) byDay.set(day, prev);
+        }
+        return { byDay, latest: sorted[sorted.length - 1].rates, firstDay, lastDay };
+      })
+      .catch((e) => {
+        _fxRateMapPromise = null;
+        throw e;
+      });
   }
   return _fxRateMapPromise;
 }
@@ -215,7 +303,10 @@ function lookupFxRate(fx: FxRateMap, currency: string, timestamp: number): numbe
   return typeof r === "number" && r > 0 ? r : null;
 }
 
-async function fetchStablecoins(timestamp: number, relevantGeckoIds?: Set<string>): Promise<{ [gecko_id: string]: { [chain: string]: number } }> {
+async function fetchStablecoins(
+  timestamp: number,
+  relevantGeckoIds?: Set<string>
+): Promise<{ [gecko_id: string]: StablecoinMcapData }> {
   const validStablecoinIds: string[] = [];
   const { peggedAssets } = await cachedFetch({
     key: "stablecoin-symbols",
@@ -225,14 +316,16 @@ async function fetchStablecoins(timestamp: number, relevantGeckoIds?: Set<string
   // /stablecoins multiplies raw circulating by the asset's USD price server-side
   // (peggedassets-server api2/cron-task/getStableCoins.ts), so chainCirculating
   // values are already USD-equivalent regardless of pegType. No FX conversion here.
-  const data: { [gecko_id: string]: { [chain: string]: number } } = {};
+  const data: { [gecko_id: string]: StablecoinMcapData } = {};
   const seenStablecoinIds = new Set<string>();
   const idToGeckoId: { [id: string]: string } = {};
+  const idToSymbol: { [id: string]: string | null } = {};
   peggedAssets.forEach((coin: any) => {
-    const { id, chainCirculating, gecko_id, pegType } = coin;
+    const { id, chainCirculating, gecko_id, pegType, symbol } = coin;
     if (!chainCirculating || !gecko_id || !pegType) return;
     idToGeckoId[id] = gecko_id;
-    data[gecko_id] = {};
+    idToSymbol[id] = typeof symbol === "string" && symbol ? symbol : null;
+    const chainMcap: StablecoinChainMcap = {};
     let hasData = false;
     Object.keys(chainCirculating).forEach((chain: string) => {
       const circulating = chainCirculating[chain].current;
@@ -240,9 +333,11 @@ async function fetchStablecoins(timestamp: number, relevantGeckoIds?: Set<string
       const mcap = circulating[pegType];
       if (!mcap) return;
       hasData = true;
-      data[gecko_id][chain] = toFixedNumber(mcap, 0);
+      chainMcap[chain] = toFixedNumber(mcap, 0);
     });
-    if (hasData && !seenStablecoinIds.has(id)) {
+    if (!hasData) return;
+    data[gecko_id] = { symbol: idToSymbol[id], chainMcap };
+    if (!seenStablecoinIds.has(id)) {
       validStablecoinIds.push(id);
       seenStablecoinIds.add(id);
     }
@@ -252,7 +347,7 @@ async function fetchStablecoins(timestamp: number, relevantGeckoIds?: Set<string
     const idsToFetch = relevantGeckoIds
       ? validStablecoinIds.filter((id) => relevantGeckoIds.has(idToGeckoId[id]))
       : validStablecoinIds;
-    return await fetchHistoricalStablecoins(timestamp, idsToFetch);
+    return await fetchHistoricalStablecoins(timestamp, idsToFetch, idToSymbol);
   }
 
   return data;
@@ -260,9 +355,10 @@ async function fetchStablecoins(timestamp: number, relevantGeckoIds?: Set<string
 
 async function fetchHistoricalStablecoins(
   timestamp: number,
-  validStablecoinIds: string[]
-): Promise<{ [gecko_id: string]: { [chain: string]: number } }> {
-  const data: { [gecko_id: string]: { [chain: string]: number } } = {};
+  validStablecoinIds: string[],
+  idToSymbol: { [id: string]: string | null }
+): Promise<{ [gecko_id: string]: StablecoinMcapData }> {
+  const data: { [gecko_id: string]: StablecoinMcapData } = {};
   if (!process.env.INTERNAL_API_KEY) throw new Error("INTERNAL_API_KEY is not set");
 
   // /stablecoin/{id} chainBalances are denominated in the asset's peg currency
@@ -290,6 +386,7 @@ async function fetchHistoricalStablecoins(
       if (!apiData) return;
 
       const { chainBalances, gecko_id, pegType } = apiData;
+      if (!chainBalances || !gecko_id || !pegType) return;
 
       let fxDivisor = 1;
       if (pegType && pegType !== "peggedUSD") {
@@ -303,7 +400,8 @@ async function fetchHistoricalStablecoins(
         fxDivisor = rate;
       }
 
-      data[gecko_id] = {};
+      const chainMcap: StablecoinChainMcap = {};
+      let hasData = false;
       Object.keys(chainBalances).forEach((chain: string) => {
         const timeseries = chainBalances[chain].tokens;
         const entry = timeseries.find((t: any) => t.date == timestamp);
@@ -312,12 +410,52 @@ async function fetchHistoricalStablecoins(
         if (!circulating) return;
         const mcap = circulating[pegType];
         if (!mcap) return;
-        data[gecko_id][chain] = toFixedNumber(mcap / fxDivisor, 0);
+        hasData = true;
+        chainMcap[chain] = toFixedNumber(mcap / fxDivisor, 0);
       });
+      if (hasData) data[gecko_id] = { symbol: idToSymbol[id] ?? null, chainMcap };
     },
   });
 
   return data;
+}
+
+function normalizeSymbolForMatch(value: any): string {
+  return typeof value === "string" ? value.toLowerCase().replace(/[^a-z0-9]/g, "") : "";
+}
+
+function stablecoinSymbolMatchesRwa(symbol: string | null, rwa: any): boolean {
+  const normalizedSymbol = normalizeSymbolForMatch(symbol);
+  if (!normalizedSymbol) return false;
+
+  return [rwa?.ticker, rwa?.canonicalMarketId]
+    .map(normalizeSymbolForMatch)
+    .some((candidate) => candidate && candidate === normalizedSymbol);
+}
+
+function getStablecoinOverrideRwaId(
+  cgId: string,
+  stablecoinData: StablecoinMcapData,
+  coingeckoIdToRwaIds: { [cgId: string]: string[] },
+  finalData: { [protocol: string]: { [key: string]: any } }
+): string | null {
+  const candidates = coingeckoIdToRwaIds[cgId] ?? [];
+  if (candidates.length === 0) return null;
+
+  const matchingIds = stablecoinData.symbol
+    ? candidates.filter((id) => stablecoinSymbolMatchesRwa(stablecoinData.symbol, finalData[id]))
+    : candidates;
+
+  if (matchingIds.length === 1) return matchingIds[0];
+
+  if (process.env.DEBUG_ENABLED) {
+    console.error(
+      `[atvl] skipping stablecoin override for gecko_id=${cgId} symbol=${
+        stablecoinData.symbol ?? "unknown"
+      } candidates=${candidates.join(",")}`
+    );
+  }
+  return null;
 }
 
 function getActiveTvls(
@@ -346,8 +484,14 @@ function getActiveTvls(
       const projectId = projectIdsMap[rwaId];
 
       if (Array.isArray(projectId) ? projectId.includes(amountId) : amountId == projectId) return;
-      if (Array.isArray(projectId) ? projectId.includes(`${amountId}-treasury`) : `${amountId}-treasury` == projectId) return;
-      if (Array.isArray(projectId) ? projectId.map((p: string) => `${p}-treasury`).includes(amountId) : amountId == `${projectId}-treasury`) return;
+      if (Array.isArray(projectId) ? projectId.includes(`${amountId}-treasury`) : `${amountId}-treasury` == projectId)
+        return;
+      if (
+        Array.isArray(projectId)
+          ? projectId.map((p: string) => `${p}-treasury`).includes(amountId)
+          : amountId == `${projectId}-treasury`
+      )
+        return;
 
       try {
         const projectName = protocolIdMap[amountId];
@@ -370,11 +514,11 @@ function getOnChainTvlAndActiveMcaps(
   assetPrices: any,
   tokenToProjectMap: any,
   finalData: any,
-  coingeckoIdToRwaId: { [cgId: string]: string },
-  stablecoinsData: any,
+  coingeckoIdToRwaIds: { [cgId: string]: string[] },
+  stablecoinsData: { [gecko_id: string]: StablecoinMcapData },
   totalSupplies: any,
   excludedAmounts: any,
-  coingeckoPrices: { [cgKey: string]: { price: number } } = {},
+  coingeckoPrices: { [cgKey: string]: { price: number } } = {}
 ) {
   // Multiple token deployments on the same chain share a price, so supply is summed.
   const setTotalSupply = (rwaId: string, chainDisplayName: string, supplyDelta: number) => {
@@ -388,16 +532,19 @@ function getOnChainTvlAndActiveMcaps(
   // bridged / wrapped supply that raw totalSupply() can miss). Override mcap +
   // activeMcap upfront; totalSupply is derived per-chain in the per-token loop
   // below so it stays consistent: mcap = supply × price.
+  const stablecoinOverrideRwaIds: { [cgId: string]: string } = {};
   Object.keys(stablecoinsData).forEach((cgId: string) => {
-    const rwaId = coingeckoIdToRwaId[cgId];
-    if (!finalData[rwaId]) return;
-    finalData[rwaId][RWA_KEY_MAP.onChain] = stablecoinsData[cgId];
-    if (!finalData[rwaId][RWA_KEY_MAP.activeMcap] && finalData[rwaId][RWA_KEY_MAP.activeMcapChecked]) {
-      finalData[rwaId][RWA_KEY_MAP.activeMcap] = { ...stablecoinsData[cgId] };
-    }
+    const rwaId = getStablecoinOverrideRwaId(cgId, stablecoinsData[cgId], coingeckoIdToRwaIds, finalData);
+    if (!rwaId || !finalData[rwaId]) return;
+    stablecoinOverrideRwaIds[cgId] = rwaId;
+    finalData[rwaId][RWA_KEY_MAP.onChain] = { ...stablecoinsData[cgId].chainMcap };
+    if (!finalData[rwaId][RWA_KEY_MAP.activeMcap] && finalData[rwaId][RWA_KEY_MAP.activeMcapChecked])
+      finalData[rwaId][RWA_KEY_MAP.activeMcap] = { ...stablecoinsData[cgId].chainMcap };
   });
 
-  // Multiple token deployments on the same chain share a price, so supply is summed.
+  // An RWA can have multiple token addresses on the same chain; aggregate across
+  // them rather than overwriting, and only subtract excluded balances once per
+  // (rwaId, chain) since excludedAmounts is already a per-(rwaId, chain) total.
   const exclusionApplied = new Set<string>();
 
   Object.keys(assetPrices).forEach((pk: string) => {
@@ -411,18 +558,30 @@ function getOnChainTvlAndActiveMcaps(
     // from stableMcap / price and skip the on-chain accumulation. If it
     // doesn't cover this chain (chain is in the spreadsheet but not the
     // stablecoins API), fall through to the on-chain path so we don't drop coverage.
-    if (cgId && stablecoinsData[cgId] && stablecoinsData[cgId][chainDisplayName] != null) {
+    if (
+      cgId &&
+      stablecoinsData[cgId] &&
+      stablecoinOverrideRwaIds[cgId] === rwaId &&
+      stablecoinsData[cgId].chainMcap[chainDisplayName] != null
+    ) {
+      finalData[rwaId][RWA_KEY_MAP.onChain] = { ...stablecoinsData[cgId].chainMcap };
       if (!finalData[rwaId][RWA_KEY_MAP.price] && assetPrices[pk]?.price) {
         finalData[rwaId][RWA_KEY_MAP.price] = toFiniteNumberOrNull(assetPrices[pk].price);
       }
       const stablePrice = assetPrices[pk]?.price;
-      const stableMcap = Number(stablecoinsData[cgId][chainDisplayName]);
+      const stableMcap = Number(stablecoinsData[cgId].chainMcap[chainDisplayName]);
       if (stablePrice && Number.isFinite(stableMcap)) {
         finalData[rwaId][RWA_KEY_MAP.totalSupply] = finalData[rwaId][RWA_KEY_MAP.totalSupply] || {};
         finalData[rwaId][RWA_KEY_MAP.totalSupply][chainDisplayName] = toFixedNumber(stableMcap / stablePrice, 6);
       }
       if (finalData[rwaId][RWA_KEY_MAP.activeMcapChecked]) {
-        findActiveMcaps(finalData, rwaId, excludedAmounts, assetPrices[pk], chainDisplayName);
+        if (!finalData[rwaId][RWA_KEY_MAP.activeMcap])
+          finalData[rwaId][RWA_KEY_MAP.activeMcap] = { ...finalData[rwaId][RWA_KEY_MAP.onChain] };
+        const exclusionKey = `${rwaId}:${chainDisplayName}`;
+        if (!exclusionApplied.has(exclusionKey)) {
+          exclusionApplied.add(exclusionKey);
+          findActiveMcaps(finalData, rwaId, excludedAmounts, assetPrices[pk], chainDisplayName);
+        }
       }
       return;
     }
@@ -446,7 +605,8 @@ function getOnChainTvlAndActiveMcaps(
     try {
       if (!finalData[rwaId][RWA_KEY_MAP.onChain]) finalData[rwaId][RWA_KEY_MAP.onChain] = {};
       if (!finalData[rwaId][RWA_KEY_MAP.activeMcap]) finalData[rwaId][RWA_KEY_MAP.activeMcap] = {};
-      if (!finalData[rwaId][RWA_KEY_MAP.onChain][chainDisplayName]) finalData[rwaId][RWA_KEY_MAP.onChain][chainDisplayName] = {};
+      if (!finalData[rwaId][RWA_KEY_MAP.onChain][chainDisplayName])
+        finalData[rwaId][RWA_KEY_MAP.onChain][chainDisplayName] = {};
 
       const supplyAdjusted = supply / 10 ** decimals;
       const aum = price * supplyAdjusted;
@@ -473,7 +633,7 @@ function getOnChainTvlAndActiveMcaps(
   // in stablecoinsData but not in the spreadsheet, so the per-token loop never
   // derives their supply — leaving onChainMcap > 0 with no totalSupply entry.
   Object.keys(stablecoinsData).forEach((cgId: string) => {
-    const rwaId = coingeckoIdToRwaId[cgId];
+    const rwaId = stablecoinOverrideRwaIds[cgId];
     if (!rwaId || !finalData[rwaId]) return;
     let price = Number(finalData[rwaId][RWA_KEY_MAP.price]) || 0;
     if (!price) {
@@ -487,7 +647,7 @@ function getOnChainTvlAndActiveMcaps(
     }
     if (!price) return;
     finalData[rwaId][RWA_KEY_MAP.totalSupply] = finalData[rwaId][RWA_KEY_MAP.totalSupply] || {};
-    Object.entries(stablecoinsData[cgId]).forEach(([chain, mcap]) => {
+    Object.entries(stablecoinsData[cgId].chainMcap).forEach(([chain, mcap]) => {
       if (finalData[rwaId][RWA_KEY_MAP.totalSupply][chain] != null) return;
       const mcapNum = Number(mcap);
       if (!Number.isFinite(mcapNum)) return;
@@ -543,7 +703,7 @@ export interface AtvlContext {
   tokensSortedByChain: { [chain: string]: string[] };
   tokenToProjectMap: { [token: string]: string };
   projectIdsMap: { [rwaId: string]: any };
-  coingeckoIdToRwaId: { [cgId: string]: string };
+  coingeckoIdToRwaIds: { [cgId: string]: string[] };
   ids: string[];
 }
 
@@ -553,7 +713,7 @@ export async function prepareAtvlContext(ids: string[] = []): Promise<AtvlContex
   const rwaTokens: { [protocol: string]: string[] } = {};
   const finalData: { [protocol: string]: { [key: string]: any } } = {};
   const projectIdsMap: { [rwaId: string]: any } = {};
-  const coingeckoIdToRwaId: { [cgId: string]: string } = {};
+  const coingeckoIdToRwaIds: { [cgId: string]: string[] } = {};
 
   const headerToKey = createAirtableHeaderToCanonicalKeyMapper(RWA_KEY_MAP);
 
@@ -573,12 +733,19 @@ export async function prepareAtvlContext(ids: string[] = []): Promise<AtvlContex
     rwaTokens[id] = Array.isArray(mapped.contracts) ? mapped.contracts : mapped.contracts ? [mapped.contracts] : [];
 
     const projectId = mapped.projectId;
-    if (Array.isArray(projectId) ? projectId.length > 0 : typeof projectId === "string" ? projectId.length > 0 : !!projectId) {
+    if (
+      Array.isArray(projectId)
+        ? projectId.length > 0
+        : typeof projectId === "string"
+        ? projectId.length > 0
+        : !!projectId
+    ) {
       projectIdsMap[id] = projectId;
     }
 
     if (typeof mapped.coingeckoId === "string" && mapped.coingeckoId) {
-      coingeckoIdToRwaId[mapped.coingeckoId] = id;
+      if (!coingeckoIdToRwaIds[mapped.coingeckoId]) coingeckoIdToRwaIds[mapped.coingeckoId] = [];
+      coingeckoIdToRwaIds[mapped.coingeckoId].push(id);
     }
 
     normalizeRwaMetadataForApiInPlace(mapped);
@@ -587,17 +754,17 @@ export async function prepareAtvlContext(ids: string[] = []): Promise<AtvlContex
 
   const { tokensSortedByChain, tokenToProjectMap } = sortTokensByChain(rwaTokens);
 
-  return { finalData, rwaTokens, tokensSortedByChain, tokenToProjectMap, projectIdsMap, coingeckoIdToRwaId, ids };
+  return { finalData, rwaTokens, tokensSortedByChain, tokenToProjectMap, projectIdsMap, coingeckoIdToRwaIds, ids };
 }
 
 /** Run the per-timestamp atvl pipeline using a pre-built context. */
 export async function runAtvlForTimestamp(
   ts: number,
   context: AtvlContext,
-  options: { skipCircuitBreaker?: boolean; storeResults?: boolean } = {},
+  options: { skipCircuitBreaker?: boolean; storeResults?: boolean } = {}
 ): Promise<{ [id: string]: any }> {
   const timestamp = ts != 0 ? getTimestampAtStartOfDay(ts) : 0;
-  const { tokensSortedByChain, tokenToProjectMap, projectIdsMap, coingeckoIdToRwaId, ids } = context;
+  const { tokensSortedByChain, tokenToProjectMap, projectIdsMap, coingeckoIdToRwaIds, ids } = context;
 
   // Each timestamp gets its own mutable copy (getActiveTvls / getOnChainTvlAndActiveMcaps mutate finalData)
   const finalData = structuredClone(context.finalData);
@@ -612,12 +779,12 @@ export async function runAtvlForTimestamp(
   // Coingecko-keyed prices used as fallback for stablecoin RWAs whose
   // spreadsheet contracts have no entry in the coins API (prices are looked
   // up by `coingecko:<id>` instead of by contract address).
-  const cgKeys = Object.keys(coingeckoIdToRwaId).map((id) => `coingecko:${id}`);
+  const cgKeys = Object.keys(coingeckoIdToRwaIds).map((id) => `coingecko:${id}`);
   const [assetPrices, aggregateRawTvls, totalSupplies, stablecoinsData, excludedAmounts, coingeckoPrices] = await Promise.all([
     timedFetch("getPrices", () => coins.getPrices(Object.keys(tokenToProjectMap), timestamp == 0 ? "now" : timestamp)),
-    timedFetch("getAggregateRawTvls", () => getAggregateRawTvls(tokensSortedByChain, timestamp)),
+    timedFetch("getAggregateRawTvlsForRwaTokens", () => getAggregateRawTvlsForRwaTokens(tokensSortedByChain, timestamp)),
     timedFetch("getTotalSupplies", () => getTotalSupplies(tokensSortedByChain, timestamp)),
-    timedFetch("fetchStablecoins", () => fetchStablecoins(timestamp, ids.length > 0 ? new Set(Object.keys(coingeckoIdToRwaId)) : undefined)),
+    timedFetch("fetchStablecoins", () => fetchStablecoins(timestamp, new Set(Object.keys(coingeckoIdToRwaIds)))),
     timedFetch("getExcludedBalances", () => getExcludedBalances(ts, finalData, tokenToProjectMap)),
     timedFetch("getCoingeckoPrices", () => cgKeys.length > 0 ? coins.getPrices(cgKeys, timestamp == 0 ? "now" : timestamp) : Promise.resolve({})),
   ]);
@@ -636,13 +803,17 @@ export async function runAtvlForTimestamp(
     assetPrices,
     tokenToProjectMap,
     finalData,
-    coingeckoIdToRwaId,
+    coingeckoIdToRwaIds,
     stablecoinsData,
     totalSupplies,
     excludedAmounts,
-    coingeckoPrices,
+    coingeckoPrices
   );
-  console.log(`[timer] compute (getActiveTvls + getOnChainTvlAndActiveMcaps): ${((performance.now() - tCompute) / 1000).toFixed(1)}s`);
+  console.log(
+    `[timer] compute (getActiveTvls + getOnChainTvlAndActiveMcaps): ${((performance.now() - tCompute) / 1000).toFixed(
+      1
+    )}s`
+  );
 
   const timestampToPublish = timestamp == 0 ? getCurrentUnixTimestamp() : timestamp;
   const res = { data: finalData, timestamp: timestampToPublish };
@@ -662,14 +833,11 @@ export async function runAtvlForTimestamp(
 
   if (options.storeResults) {
     const tStore = performance.now();
-    await Promise.all([
-      timestamp == 0 ? storeMetadata(res) : Promise.resolve(),
-      storeHistorical(res as any),
-    ]);
+    await Promise.all([timestamp == 0 ? storeMetadata(res) : Promise.resolve(), storeHistorical(res as any)]);
     console.log(`[timer] storeResults: ${((performance.now() - tStore) / 1000).toFixed(1)}s`);
   }
 
-  if (process.env.DEBUG_ENABLED) console.log(`Exitting atvlRefill.ts for ts=${timestamp}`)
+  if (process.env.DEBUG_ENABLED) console.log(`Exitting atvlRefill.ts for ts=${timestamp}`);
 
   return finalData;
 }
@@ -678,9 +846,7 @@ export async function runAtvlForTimestamp(
 
 const CIRCUIT_BREAKER_THRESHOLD = 0.5;
 
-async function checkCircuitBreakers(
-  data: { [id: string]: any }
-): Promise<{ triggered: boolean; details: string[] }> {
+async function checkCircuitBreakers(data: { [id: string]: any }): Promise<{ triggered: boolean; details: string[] }> {
   const details: string[] = [];
 
   let newDefiActiveTvl = 0;

@@ -1,6 +1,8 @@
 import { getApi } from "../utils/sdk";
 import getWrites from "../utils/getWrites";
-import { runInPromisePool } from "@defillama/sdk/build/generalUtil";
+
+import * as sdk from '@defillama/sdk'
+const { runInPromisePool } = sdk.util;
 const projectName = "unknownTokensV3";
 
 const slot0Abi =
@@ -75,6 +77,8 @@ const config: any = {
   base: {
     "0xf7178122A087eF8F5c7BeA362b7DaBE38F20Bf05":
       "0x2019DEB4E18107A2FD8B4acBC7e3878037336fc2", // OMNI
+    "0xB738b1568F08B0d6894a580Ef805E9298ebFaB46":
+      "0xf630370cBFEB1d04c5C7B564143010E8d30b4e10", // LAND
   },
   hyperliquid: {
     "0x876e7F2f30935118a654fc0E1f807aFc49EFe500":

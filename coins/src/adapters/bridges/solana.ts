@@ -1,4 +1,5 @@
-import { fetch } from "../utils";
+import { cacheSolanaTokens } from '../../scripts/coingeckoUtils';
+
 const blacklist = new Set([
   'CASHedBw9NfhsLBXq1WNVfueVznx255j8LLTScto3S6s',
   'C9xqJe3gMTUDKidZsZ6jJ7tL9zSLimDUKVpgUbLZnNbi',
@@ -13,18 +14,14 @@ interface Token {
   logoURI: string;
   tags: string[];
   extensions:
-    | {
-        [id: string]: string;
-      }
-    | undefined;
+  | {
+    [id: string]: string;
+  }
+  | undefined;
 }
 
 export default async function bridge() {
-  const tokenlist = (
-    await fetch(
-      "https://cdn.jsdelivr.net/gh/solana-labs/token-list@main/src/tokens/solana.tokenlist.json"
-    )
-  ).tokens as Token[];
+  const tokenlist = (await cacheSolanaTokens()).tokens as Token[];
 
   const tokens: any[] = [];
   tokenlist.map((token) => {

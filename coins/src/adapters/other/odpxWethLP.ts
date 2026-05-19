@@ -69,31 +69,6 @@ async function contractCalls(
 }
 
 const abi = {
-  balanceOf: {
-    constant: true,
-    inputs: [
-      {
-        name: "_owner",
-        type: "address",
-      },
-    ],
-    name: "balanceOf",
-    outputs: [
-      {
-        name: "balance",
-        type: "uint256",
-      },
-    ],
-    payable: false,
-    type: "function",
-  },
-  convertToAssets: {
-    constant: true,
-    inputs: [{ name: "", type: "uint256" }],
-    name: "convertToAssets",
-    outputs: [{ name: "", type: "uint256" }],
-    payable: false,
-    stateMutability: "view",
-    type: "function",
-  },
-};
+  "balanceOf": "function balanceOf(address _owner) view returns (uint256 balance)",
+  "convertToAssets": "function convertToAssets(uint256) view returns (uint256)"
+} ;

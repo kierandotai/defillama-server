@@ -70,16 +70,18 @@ export function isMetadataBlacklisted(chain: string, tokenAddress: string): bool
 }
 
 let solanaTokens: Promise<any>;
-let _solanaTokens: Promise<any>;
+let _solanaTokens: any;
 export async function cacheSolanaTokens() {
   if (_solanaTokens === undefined) {
-    _solanaTokens = fetch(
-      "https://cdn.jsdelivr.net/gh/solana-labs/token-list@main/src/tokens/solana.tokenlist.json"
+    _solanaTokens = sdk.cache.cachedFetch(
+      // "https://cdn.jsdelivr.net/gh/solana-labs/token-list@main/src/tokens/solana.tokenlist.json"
+      { key: 'sol-token-list', endpoint: "https://raw.githubusercontent.com/solana-labs/token-list/refs/heads/main/src/tokens/solana.tokenlist.json" }
     ).catch((e) => {
+      _solanaTokens = undefined;
       console.error("Failed to fetch Solana token list:", e);
       throw new Error(`Failed to fetch Solana token list: ${e.message}`);
     });
-    solanaTokens = _solanaTokens.then((r) => r.json());
+    solanaTokens = _solanaTokens
   }
   return solanaTokens;
 }

@@ -15,6 +15,8 @@ const stateViewAbis = {
 
 const stateViews: Record<string, string> = {
   base: "0xa3c0c9b65bad0b08107aa264b0f3db444b867a71",
+  /** Pancake Infinity CL — pools live under CLPoolManager; price reads use PoolId (bytes32), not a standalone pool contract. */
+  bsc: "0xa0FfB9c1CE1Fe56963B0321B32E7A0302114058b",
 };
 
 const config: Record<string, Array<{ poolId: string; token: string; paired: string }>> = {
@@ -23,6 +25,15 @@ const config: Record<string, Array<{ poolId: string; token: string; paired: stri
       poolId: "0xd7e5522c9cc3682c960afada6adde0f8116580f2ad2cef08c197faf625e53842", // ETH/BEAN
       token: "0x5c72992b83E74c4D5200A8E8920fB946214a5A5D", // BEAN
       paired: NATIVE,
+    },
+  ],
+  bsc: [
+    {
+      // RTX / USDT — PoolKey: RTX 0x4829…9893, USDT 0x55d3…7955, hook 0x72e09eBd9b24F47730b651889a4eD984CBa53d90, fee 67, parameters 0x…0a0055
+      poolId:
+        "0x9f57ccbb2a7a89120cbdc8dad277d6e82aa9b2c3925e148033963a22e1f57b5e",
+      token: "0x4829A1D1fB6DED1F81d26868ab8976648baF9893",
+      paired: "0x55d398326f99059fF775485246999027B3197955",
     },
   ],
 };

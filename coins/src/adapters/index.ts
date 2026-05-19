@@ -92,6 +92,7 @@ export default {
   glpDerivs: require("./yield/glpDerivs"),
   glv: require("./yield/glv"),
   pendle: require("./yield/pendle"),
+  kuru: require("./yield/kuru"),
   penpie: require("./yield/pendle"),
   phux: require("./markets/phux"),
   wombat: require("./markets/wombat"),
@@ -126,7 +127,7 @@ export default {
   uniV4: require("./markets/uniswap/v4"),
   liquity: require("./other/liquity"),
   fxProtocol: require("./yield/fx-protocol"),
-  crosscurve: require("./markets/crosscurve"),
+  // crosscurve: require("./markets/crosscurve"),  // crosscurve is hacked
   samm: require("./markets/samm"),
   gamma: require("./yield/gamma"),
   thena: require("./markets/thena"),
@@ -203,7 +204,10 @@ export default {
   redstone: require("./oracles/redstone"),
   navTokens: require("./rwa/navTokens"),
   safo: require("./rwa/safo"),
+  brix: require("./rwa/brix"),
   xaue: require("./rwa/xaue"),
+  r25: require("./rwa/r25"),
   dCOMP: require("./other/dCOMP"),
   valos: require("./other/valos"),
+  pathUSD: require("./other/pathUSD"),
 };

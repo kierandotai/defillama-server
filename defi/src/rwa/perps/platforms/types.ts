@@ -37,6 +37,10 @@ export interface ParsedPerpsMarket {
   maxLeverage: number | null;
   /** Size decimals (0 if not applicable) */
   szDecimals: number;
+  /** Optional venue-sourced maker fee rate; falls back to Airtable metadata. */
+  makerFeeRate?: number | null;
+  /** Optional venue-sourced taker fee rate; falls back to Airtable metadata. */
+  takerFeeRate?: number | null;
 }
 
 export interface FundingEntry {

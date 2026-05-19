@@ -59,6 +59,9 @@ const data4: Protocol[] = [
     audit_links: ["https://docs.gondi.xyz/security-and-audits"],
     parentProtocol: "parent#gondi",
     listedAt: 1735271441,
+    dimensions: {
+      fees: "gondi-v3",
+    },
   },
   {
     id: "5562",
@@ -1198,36 +1201,20 @@ const data4: Protocol[] = [
     url: "https://app.silo.finance",
     description: "Silo Finance creates permissionless and risk-isolated lending markets.",
     chain: "Arbitrum",
-    logo: `${baseIconsUrl}/silo-finance.png`,
+    logo: `${baseIconsUrl}/silo-v2.jpg`,
     audits: "2",
     gecko_id: null,
     cmcId: null,
     category: "Lending",
     chains: ["Arbitrum", "Sonic", "Avalanche"],
     oraclesBreakdown: [
-      {
-        name: "RedStone",
-        type: "Primary",
-        proof: ["https://app.silo.finance", "https://github.com/DefiLlama/defillama-server/pull/9560"],
-        chains: [
-          {chain: "Sonic"},
-          {chain: "Ethereum"}
-        ],
+      {name: "RedStone",type: "Primary",proof: ["https://app.silo.finance", "https://github.com/DefiLlama/defillama-server/pull/9560"],
+        chains: [{chain: "Sonic"},{chain: "Ethereum"}],
       },
-      {
-        name: "eOracle",
-        type: "Primary",
-        proof: ["https://app.silo.finance/markets/avalanche/xbtc-btcb-130?action=deposit&token=0", "https://app.silo.finance/markets/avalanche/xusd-usdc-129?action=deposit&token=0", "https://app.silo.finance/markets/arbitrum/xusd-usdc-146?action=deposit", "https://app.silo.finance/markets/arbitrum/xusd-usdc-146?action=deposit"],
-        chains: [
-          {chain: "Avalanche"},
-          {chain: "Arbitrum"},
-        ],
+      {name: "eOracle",type: "Primary",proof: ["https://app.silo.finance/markets/avalanche/xbtc-btcb-130?action=deposit&token=0", "https://app.silo.finance/markets/avalanche/xusd-usdc-129?action=deposit&token=0", "https://app.silo.finance/markets/arbitrum/xusd-usdc-146?action=deposit", "https://app.silo.finance/markets/arbitrum/xusd-usdc-146?action=deposit"],
+        chains: [{chain: "Avalanche"},{chain: "Arbitrum"}],
       },
-       {
-        name: "Chainlink",
-        type: "Secondary",
-        proof: ["https://github.com/DefiLlama/defillama-server/pull/9388", "https://silopedia.silo.finance/oracles"],
-      },
+       {name: "Chainlink",type: "Secondary",proof: ["https://github.com/DefiLlama/defillama-server/pull/9388", "https://silopedia.silo.finance/oracles"],},
     ],
     module: "silo-v2/index.js",
     twitter: "SiloFinance",
@@ -2996,6 +2983,9 @@ const data4: Protocol[] = [
     module: "libre-capital/index.js",
     twitter: "KAIO_xyz",
     listedAt: 1738172664,
+    dimensions: {
+      fees: "kaio"
+    }
   },
   {
     id: "5690",
@@ -10734,14 +10724,14 @@ const data4: Protocol[] = [
   },
   {
     id: "6024",
-    name: "Aegis",
+    name: "Aegis YUSD",
     address: null,
     symbol: "-",
     url: "https://app.aegis.im",
     description:
       "Aegis performs funding rate arbitrage through delta-neutral trades in spot and perpetual markets, effectively generating profits from funding fees. These fees, disbursed three times daily, align perpetual contract and spot prices, ultimately rewarding YUSD holders.",
     chain: "Ethereum",
-    logo: `${baseIconsUrl}/aegis.jpg`,
+    logo: `${baseIconsUrl}/aegis-yusd.jpg`,
     audits: "0",
     gecko_id: null,
     cmcId: null,
@@ -10749,8 +10739,7 @@ const data4: Protocol[] = [
     chains: ["Ethereum", "Binance"],
     module: "aegis-yusd/index.js",
     twitter: "aegis_im",
-    github: ["Aegis-im"],
-    stablecoins: ["aegis-yusd"],
+    parentProtocol: "parent#aegis",
     listedAt: 1744284096,
     dimensions: {
       fees: "aegis-yusd",
@@ -14742,8 +14731,8 @@ const data4: Protocol[] = [
       {
         name: "Chainlink",
         type: "Primary",
-        proof: ["https://app.morpho.org/polygon/earn","https://app.morpho.org/base/earn"],
-        chains: [{ chain: "Polygon" }, { chain: "Base" }],
+        proof: ["https://app.morpho.org/polygon/earn","https://app.morpho.org/base/earn","https://app.morpho.org/markets"],
+        chains: [{ chain: "Polygon" }, { chain: "Base" }, { chain: "Ethereum" }],
       },
     ],
     listedAt: 1747734127,
@@ -15374,7 +15363,7 @@ const data4: Protocol[] = [
     name: "NEAR Intents",
     address: null,
     symbol: "-",
-    url: "https://app.near-intents.org/",
+    url: "https://near.com/",
     description: `NEAR Intents are a new type of transaction that allow information, requests, assets, and actions to be exchanged between AI agents, services, and end users`,
     chain: "Near",
     logo: `${baseIconsUrl}/near-intents.jpg`,
@@ -16368,7 +16357,7 @@ const data4: Protocol[] = [
     id: "6267",
     name: "Stellar DEX",
     address: null,
-    symbol: "XLM",
+    symbol: "-",
     url: "https://developers.stellar.org/docs/learn/fundamentals/liquidity-on-stellar-sdex-liquidity-pools",
     description:
       "The Stellar network acts as a decentralized distributed exchange that allows users to trade and convert assets with the network's Offer operations",
@@ -17584,6 +17573,10 @@ const data4: Protocol[] = [
     module: "xflows/index.js",
     twitter: "wanchain_org",
     listedAt: 1750181745,
+    dimensions: {
+      fees: "xflows",
+      dexs: "xflows",
+    }
   },
   {
     id: "6318",
@@ -18616,7 +18609,7 @@ const data4: Protocol[] = [
     twitter: "crovegasfun",
     listedAt: 1751045489,
   },
-  {  
+  {
     id: "6364",
     name: "Mineral Vault",
     address: null,
@@ -20428,6 +20421,7 @@ const data4: Protocol[] = [
     chains: ["Hyperliquid L1"],
     module: "dummy.js",
     twitter: "LiquidLaunchHL",
+    parentProtocol: "parent#liquidlabs",
     dimensions: {
       fees: "liquidlaunch",
       dexs: "liquidlaunch"
@@ -21342,15 +21336,15 @@ const data4: Protocol[] = [
   },
   {
     id: "6482",
-    name: "Liminal",
+    name: "Liminal Basis",
     address: null,
     symbol: "-",
     url: "https://liminal.money/join/DEFILLAMA",
     referralUrl: "https://liminal.money/join/DEFILLAMA",
     description:
-      "Liminal is a DeFi protocol on Hyperliquid that offers stable, delta-neutral yields from funding rates, allowing users to earn returns without market exposure",
+      "Liminal is designed to capture yield sources offered by Hyperliquid and distribute them through fully automated strategies across all ecosystems",
     chain: "Hyperliquid L1",
-    logo: `${baseIconsUrl}/liminal.jpg`,
+    logo: `${baseIconsUrl}/liminal-basis.jpg`,
     audits: "2",
     gecko_id: null,
     cmcId: null,
@@ -21359,6 +21353,7 @@ const data4: Protocol[] = [
     audit_links: ["https://docs.liminal.money/more/audits"],
     module: "liminal-money/index.js",
     twitter: "liminalmoney",
+    parentProtocol: "parent#liminal",
     listedAt: 1753556072,
   },
   {
@@ -27446,9 +27441,9 @@ const data4: Protocol[] = [
     name: "Vishwa",
     address: null,
     symbol: "-",
-    url: "https://vishwanetwork.xyz/",
+    url: "https://www.vishwalab.com/",
     description:
-      "Vishwa is the verification layer for autonomous capital. As financial execution becomes agent-driven, capital must prove solvency, authorization, and policy compliance before transactions occur. Vishwa uses zero-knowledge proofs to enforce these constraints before execution — agents must cryptographically prove they are authorized and solvent before funds move. This allows institutions to deploy capital programmatically across execution venues while maintaining enforceable constraints. No proof, no execution.",
+      "Vishwa is agent-native banking infrastructure for autonomous capital, built around a pre-execution control layer that verifies and enforces solvency, authorization, policy, and execution constraints before capital moves across chains and execution venues.",
     chain: "Bitcoin",
     logo: `${baseIconsUrl}/vishwa.jpg`,
     audits: "2",
@@ -27457,7 +27452,7 @@ const data4: Protocol[] = [
     category: "Anchor BTC",
     chains: ["Bitcoin"],
     module: "vishwa/index.js",
-    twitter: "Vishwa_xyz",
+    twitter: "Vishwa_lab",
     audit_links: ["https://docs.vishwanetwork.xyz/security/audits-and-compliance"],
     listedAt: 1758557154
   },
@@ -29311,6 +29306,9 @@ const data4: Protocol[] = [
     twitter: "LorenzoProtocol",
     parentProtocol: "parent#lorenzo-protocol",
     listedAt: 1760109435,
+    dimensions: {
+      fees: "lorenzo-susd1",
+    },
   },
   {
     id: "6841",
@@ -30101,7 +30099,14 @@ const data4: Protocol[] = [
       {
         name: "Chaos",
         type: "Primary",
+        endDate: "2026-05-11",
         proof: ["https://docs.tydro.com/primitives/oracle"],
+      },
+      {
+        name: "Chainlink",
+        type: "Primary",
+        startDate: "2026-05-12",
+        proof: ["https://docs.tydro.com/primitives/oracle", "https://docs.tydro.com/resources/risks", "https://x.com/tydrohq/status/2052544320247369764?s=20", "https://explorer.inkonchain.com/tx/0x3c530d53af8791a5a7d849f89c9983e6711ed707b45dc12cdbb4776af54f6f00?tab=index"],
       },
     ],
     listedAt: 1760580111,
@@ -30475,6 +30480,9 @@ const data4: Protocol[] = [
     audit_links: ["https://docs.primefi.xyz/audits"],
     github: ["PrimeNumbersLabs"],
     listedAt: 1761083999,
+    dimensions: {
+      fees: "primefi-xyz"
+    }
   },
   {
     id: "6893",

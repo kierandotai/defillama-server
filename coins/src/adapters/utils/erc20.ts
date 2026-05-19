@@ -5,6 +5,28 @@ import { DbTokenInfos } from "./dbInterfaces";
 
 const project = "coins/erc20-data";
 const cacheObject = {} as any;
+const dirtyCacheKeys = new Set<string>();
+let flushHandlersRegistered = false;
+
+function registerFlushHandlers() {
+  if (flushHandlersRegistered) return;
+  flushHandlersRegistered = true;
+  const flush = async () => {
+    if (!dirtyCacheKeys.size) return;
+    const keys = Array.from(dirtyCacheKeys);
+    dirtyCacheKeys.clear();
+    await Promise.all(keys.map((cacheKey) => {
+      const [key, chain] = splitCacheKey(cacheKey);
+      return setCache(key, chain, cacheObject[cacheKey]);
+    }));
+  };
+  process.on("beforeExit", () => { flush().catch((e) => console.error("erc20 cache flush failed", e)); });
+}
+
+function splitCacheKey(cacheKey: string): [string, string] {
+  const idx = cacheKey.lastIndexOf("/");
+  return [cacheKey.slice(0, idx), cacheKey.slice(idx + 1)];
+}
 
 export async function getTokenInfo(
   chain: string = "ethereum",
@@ -183,7 +205,10 @@ async function _getCachedData(params: {
     permitFailure: true,
   });
   decimals.forEach((o, i) => (cache[missing[i]] = o));
-  await setCache(key, chain, cache);
+  if (missing.length) {
+    dirtyCacheKeys.add(cacheKey);
+    registerFlushHandlers();
+  }
 
   return targets.map((i) => {
     return {

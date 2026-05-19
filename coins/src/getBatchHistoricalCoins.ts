@@ -7,6 +7,8 @@ import {
 import { getRecordClosestToTimestamp } from "./utils/shared/getRecordClosestToTimestamp";
 import { quantisePeriod } from "./utils/timestampUtils";
 import { getBasicCoins } from "./utils/getCoinsUtils";
+
+// WARNING: changing this breaks it
 import { runInPromisePool } from "@defillama/sdk/build/generalUtil";
 
 const defaultSearchWidth = quantisePeriod("6h");
