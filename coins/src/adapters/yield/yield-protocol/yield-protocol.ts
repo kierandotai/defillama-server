@@ -53,24 +53,18 @@ export default async function getTokenPrices(chain: string, timestamp: number) {
     abi: abis.pools,
   })
   pools = [...new Set(pools)]
-  const fyTokens = await api.multiCall({
-    calls: pools,
-    abi: 'address:fyToken',
-  })
-  const underlyingTokens = await api.multiCall({
-    calls: pools,
-    abi: 'address:base',
-  })
+  const [fyTokens, underlyingTokens, maturites] = await Promise.all([
+    api.multiCall({ calls: pools, abi: 'address:fyToken' }),
+    api.multiCall({ calls: pools, abi: 'address:base' }),
+    api.multiCall({ calls: pools, abi: abis.maturity }),
+  ])
 
-  const tokenInfos = await getTokenInfo(chain, fyTokens, block)
+  const [tokenInfos, coinsData] = await Promise.all([
+    getTokenInfo(chain, fyTokens, block),
+    getTokenAndRedirectDataMap(underlyingTokens, chain, timestamp),
+  ])
 
   const params = tokenInfos.decimals.map(i => 10 ** i.output)
-  let coinsData = await getTokenAndRedirectDataMap(underlyingTokens, chain, timestamp);
-
-  let maturites = await api.multiCall({
-    calls: pools,
-    abi: abis.maturity,
-  })
   let pricesRes: any = []
   let sellCalls: any = []
   const currentTime = timestamp === 0 ? Math.floor(Date.now() / 1e3) : timestamp

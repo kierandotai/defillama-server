@@ -3,25 +3,7 @@ import * as sdk from '@defillama/sdk'
 const { call, } = sdk.api.abi
 import { addToDBWritesList } from "../utils/database";
 
-const UNISWAP_V3_POOL_ABI = {
-  inputs: [],
-  name: "slot0",
-  outputs: [
-    { internalType: "uint160", name: "sqrtPriceX96", type: "uint160" },
-    { internalType: "int24", name: "tick", type: "int24" },
-    { internalType: "uint16", name: "observationIndex", type: "uint16" },
-    { internalType: "uint16", name: "observationCardinality", type: "uint16" },
-    {
-      internalType: "uint16",
-      name: "observationCardinalityNext",
-      type: "uint16",
-    },
-    { internalType: "uint8", name: "feeProtocol", type: "uint8" },
-    { internalType: "bool", name: "unlocked", type: "bool" },
-  ],
-  stateMutability: "view",
-  type: "function",
-};
+const UNISWAP_V3_POOL_ABI =  "function slot0() view returns (uint160 sqrtPriceX96, int24 tick, uint16 observationIndex, uint16 observationCardinality, uint16 observationCardinalityNext, uint8 feeProtocol, bool unlocked)";
 
 const UNISWAP_POOL_ADDRESS = "0x21a28c2eb4ab5c5e752ee147c0242c7ed8168253";
 

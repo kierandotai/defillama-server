@@ -3,10 +3,16 @@ import { getProtocolTvl } from "./utils/getProtocolTvl";
 import parentProtocolsList from "./protocols/parentProtocols";
 import type { IParentProtocol } from "./protocols/types";
 import type { IProtocol, LiteProtocol, ProtocolTvls } from "./types";
-import { chainCoingeckoIds, currentChainLabelsList, getChainDisplayName, getChainKeyFromLabel, replaceChainNamesForOraclesByChain } from "./utils/normalizeChain";
+import {
+  chainCoingeckoIds,
+  currentChainLabelsList,
+  getChainDisplayName,
+  getChainKeyFromLabel,
+  replaceChainNamesForOraclesByChain,
+} from "./utils/normalizeChain";
 import { extraSections } from "./utils/normalizeChain";
 import fetch from "node-fetch";
-import { excludeProtocolInCharts, hiddenCategoriesFromUISet, } from "./utils/excludeProtocols";
+import { excludeProtocolInCharts, hiddenCategoriesFromUISet } from "./utils/excludeProtocols";
 import protocols from "./protocols/data";
 import { readRouteData } from "./api2/cache/file-cache";
 
@@ -49,7 +55,7 @@ function getVisibleChainLabel(chain: string) {
 export function getVisibleChainLabels(
   protocolChainTvls: { [chain: string]: number },
   dimensionsChainAggData: any = {},
-  fallbackChainLabels: string[] = [],
+  fallbackChainLabels: string[] = []
 ) {
   const normalizedProtocolChainTvls = new Map<string, number>();
   for (const chain in protocolChainTvls) {
@@ -58,7 +64,7 @@ export function getVisibleChainLabels(
 
     normalizedProtocolChainTvls.set(
       visibleChainLabel,
-      (normalizedProtocolChainTvls.get(visibleChainLabel) ?? 0) + protocolChainTvls[chain],
+      (normalizedProtocolChainTvls.get(visibleChainLabel) ?? 0) + protocolChainTvls[chain]
     );
   }
 
@@ -141,9 +147,10 @@ export async function storeGetProtocols({
           category: protocol.category,
           ...(protocol.tags ? { tags: protocol.tags } : {}),
           chains: protocol.chains,
-          oracles: protocol.oraclesBreakdown && protocol.oraclesBreakdown.length > 0
-            ? protocol.oraclesBreakdown.map((x) => x.name)
-            : protocol.oracles,
+          oracles:
+            protocol.oraclesBreakdown && protocol.oraclesBreakdown.length > 0
+              ? protocol.oraclesBreakdown.map((x) => x.name)
+              : protocol.oracles,
           oraclesByChain: replaceChainNamesForOraclesByChain(true, protocol.oraclesByChain),
           forkedFrom,
           listedAt: protocol.listedAt,
@@ -162,16 +169,25 @@ export async function storeGetProtocols({
           defillamaId: protocol.id,
           governanceID: protocol.governanceID,
           geckoId: protocol.gecko_id,
-          ...(protocol.deprecated ? { deprecated: protocol.deprecated } : {})
+          ...(protocol.deprecated ? { deprecated: protocol.deprecated } : {}),
         };
       })
     )
   ).filter((p) => !hiddenCategoriesFromUISet.has(p.category ?? ""));
 
   const chains = {} as { [chain: string]: number };
+  const protocolChainLabels: string[] = [];
+  const protocolChainLabelsSet = new Set<string>();
   const protocolCategoriesSet: Set<string> = new Set();
 
   trimmedResponse.forEach((p) => {
+    for (const chain of p.chains) {
+      if (protocolChainLabelsSet.has(chain)) continue;
+
+      protocolChainLabelsSet.add(chain);
+      protocolChainLabels.push(chain);
+    }
+
     if (!p.category) return;
 
     protocolCategoriesSet.add(p.category);
@@ -245,13 +261,12 @@ export async function storeGetProtocols({
     };
   });
 
-
-  const dimensionsChainAggData = await readRouteData('/dimensions/chain-agg-data', {
+  const dimensionsChainAggData = await readRouteData("/dimensions/chain-agg-data", {
     skipErrorLog: true,
   });
   let fallbackChainLabels: string[] = [];
   if (!hasDimensionsChainAggData(dimensionsChainAggData)) {
-    const previousProtocols2Data = await readRouteData('/lite/protocols2', {
+    const previousProtocols2Data = await readRouteData("/lite/protocols2", {
       skipErrorLog: true,
     });
     if (previousProtocols2Data?.chains) {
@@ -263,11 +278,16 @@ export async function storeGetProtocols({
         }
       }
     }
-    console.warn('Missing /dimensions/chain-agg-data while computing visible chains for /lite/protocols2, falling back to cached visible chains');
+    console.warn(
+      "Missing /dimensions/chain-agg-data while computing visible chains for /lite/protocols2, falling back to cached visible chains"
+    );
   }
 
-  const chainsOutput = getVisibleChainLabels(chains, dimensionsChainAggData ?? {}, fallbackChainLabels)
-
+  const chainsOutput = getVisibleChainLabels(
+    chains,
+    dimensionsChainAggData ?? {},
+    fallbackChainLabels.concat(protocolChainLabels)
+  );
 
   const protocols2Data = {
     protocols: trimmedResponse,
@@ -291,7 +311,7 @@ export async function storeGetProtocols({
       mcap: protocol.mcap,
       gecko_id: protocol.gecko_id,
       parent: protocol.parentProtocol,
-      ...(protocol.deprecated ? { deprecated: true } : {})
+      ...(protocol.deprecated ? { deprecated: true } : {}),
     }))
     .concat(extendedParentProtocols);
 

@@ -1,5 +1,5 @@
-import fetch from "node-fetch";
 import { getR2, storeR2JSONString } from "./utils/r2";
+import { fetchCurrentPrices, fetchMcaps } from "./utils/coinsApi";
 import { sendMessage } from "./utils/discord";
 import PromisePool from "@supercharge/promise-pool";
 import { protocolsById } from "./protocols/data";
@@ -106,12 +106,11 @@ const fetchProtocolData = async (protocols: string[]): Promise<ProtocolData[]> =
       const nextUnlockIndex = formattedData.findIndex(([date]) => Number(date) > now);
 
       function getCircSupplyAtIndex(index: number): number {
-        if (index == -1) return maxSupply;
         let supply: number = 0;
         (res.documentedData?.data ?? res.data).forEach(
           (item: { data: Array<{ timestamp: number; unlocked: number }> }) => {
             if (item.data == null) return;
-            supply += item.data[index].unlocked;
+            supply += item.data.at(index).unlocked;
           }
         );
         return supply;
@@ -126,7 +125,7 @@ const fetchProtocolData = async (protocols: string[]): Promise<ProtocolData[]> =
       const protocolId = res.metadata.protocolIds?.[0] ?? null;
       protocolsData.push({
         token: res.metadata.token,
-        sources: res.metadata.sources,
+        sources: [],
         protocolId,
         protocolSlug: getProtocolSlug(protocolId),
         name: res.name,
@@ -165,15 +164,11 @@ const fetchCoinsApiData = async (protocols: ProtocolData[]): Promise<void> => {
       .map((p: ProtocolData) => `coingecko:${p.gecko_id}`);
 
     const [tokenPrices, mcapRes] = await Promise.all([
-      fetch(`https://coins.llama.fi/prices/current/${tokens}?searchWidth=4h?apikey=${process.env.COINS_KEY}`).then(
-        (res) => res.json()
-      ),
-      fetch(`https://coins.llama.fi/mcaps?apikey=${process.env.COINS_KEY}`, {
-        method: "POST",
-        body: JSON.stringify({
-          coins,
-        }),
-      }).then((r) => r.json()),
+      fetchCurrentPrices(tokens.split(",").filter(Boolean), {
+        searchWidth: "4h",
+        legacyApiKey: process.env.COINS_KEY,
+      }),
+      fetchMcaps(coins, { legacyApiKey: process.env.COINS_KEY }),
     ]);
 
     protocols.map((p: ProtocolData) => {

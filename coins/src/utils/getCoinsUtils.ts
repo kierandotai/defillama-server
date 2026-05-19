@@ -34,13 +34,17 @@ export const batchGetLatest = (pks: string[]) =>
 
 export async function getBasicCoins(requestedCoins: string[]) {
   const PKTransforms = {} as { [pk: string]: string[] };
-  const pks: string[] = [];
+  const pks = new Set<string>();
   requestedCoins.forEach((coin) => {
     const pk = coinToPK(coin);
-    (PKTransforms[pk]) ? PKTransforms[pk].push(coin) : PKTransforms[pk] = [coin]
-    pks.push(pk);
+    if (PKTransforms[pk]) {
+      if (!PKTransforms[pk].includes(coin)) PKTransforms[pk].push(coin);
+    } else {
+      PKTransforms[pk] = [coin];
+    }
+    pks.add(pk);
   });
-  const coins = await batchGetLatest(pks);
+  const coins = await batchGetLatest([...pks]);
   return { coins, PKTransforms };
 }
 

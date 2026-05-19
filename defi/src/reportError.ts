@@ -6,6 +6,37 @@ import { sluggifyString } from "./utils/sluggify";
 
 // CREATE TABLE errorReports (time INT, protocol VARCHAR(200), dataType VARCHAR(200), message TEXT, correctSource TEXT, contact TEXT, id serial primary key);
 
+const FRONT_FORM_URL =
+  "https://webhook.frontapp.com/forms/0f7e04ca1380d461a597/LKbySkFsuoKOT3u3tAzk45SYm8cWIPVJb2zipokH6m-bzllqmtpfU_X7vmTO4rSaEzyqaVIB04K-TMAmXLFd7SDvKyDyUm1-zkjkycK6KPhEe4fZaa9q2KK95l-Ju8A";
+const FRONT_FORM_TIMEOUT_MS = 5_000;
+
+async function submitFrontReport(formData: FormData, protocol: string, dataType: string) {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), FRONT_FORM_TIMEOUT_MS);
+
+  try {
+    const frontResponse = await fetch(FRONT_FORM_URL, {
+      method: 'POST',
+      headers: {
+        Referer: 'https://defillama.com/error',
+        Origin: 'https://defillama.com',
+      },
+      body: formData,
+      signal: controller.signal,
+    });
+
+    if (frontResponse.url !== "https://defillama.com/error?code=ok") {
+      console.log(
+        `Failed to send a front message for ${protocol} (${dataType}): ${frontResponse.status} ${frontResponse.url}`
+      );
+    }
+  } catch (e) {
+    console.log(`Failed to send a front message for ${protocol} (${dataType})`, e);
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
 export async function reportError({ message, protocol, dataType, correctSource, contact }: any) {
   const formattedMessage = `Protocol: ${protocol}
 Data: ${dataType}
@@ -18,7 +49,7 @@ https://defillama.com/protocol/${sluggifyString(protocol)}`
   formData.append('email', !contact || contact === "" ? `anon@defillama.com` : contact);
   formData.append('body', formattedMessage);
 
-  try{
+  try {
     await sendMessage(formattedMessage, process.env.ERROR_REPORTS_WEBHOOK, false)
       .catch(e => console.log(`Failed to send a discord message for ${protocol} (${dataType})`, e))
     
@@ -32,18 +63,7 @@ https://defillama.com/protocol/${sluggifyString(protocol)}`
     console.log('reportError error', e);
   }
 
-  const frontResponse = await fetch(`https://webhook.frontapp.com/forms/0f7e04ca1380d461a597/LKbySkFsuoKOT3u3tAzk45SYm8cWIPVJb2zipokH6m-bzllqmtpfU_X7vmTO4rSaEzyqaVIB04K-TMAmXLFd7SDvKyDyUm1-zkjkycK6KPhEe4fZaa9q2KK95l-Ju8A`, {
-      method: 'POST',
-      headers: {
-        Referer: 'https://defillama.com/error',
-        Origin: 'https://defillama.com',
-      },
-      body: formData
-  })
-  
-  if(frontResponse.url !== "https://defillama.com/error?code=ok") {
-    throw new Error(`Failed to send a front message for ${protocol} (${dataType})`)
-  }
+  await submitFrontReport(formData, protocol, dataType);
 }
 
 const handler = async (event: AWSLambda.APIGatewayEvent): Promise<IResponse> => {

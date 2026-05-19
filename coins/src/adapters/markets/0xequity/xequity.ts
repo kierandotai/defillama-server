@@ -61,10 +61,4 @@ async function getPrices(chain: string, tokenData: { feed: string; address: stri
   return output.map(({ output }: any) => output / 1e18);
 }
 
-const chainLinkOracleGetPriceAbi = {
-  inputs: [{ internalType: "address", name: "tokenAddress", type: "address" }],
-  name: "getTokenPrice",
-  outputs: [{ internalType: "uint256", name: "", type: "uint256" }],
-  stateMutability: "view",
-  type: "function",
-};
+const chainLinkOracleGetPriceAbi = "function getTokenPrice(address tokenAddress) view returns (uint256)";

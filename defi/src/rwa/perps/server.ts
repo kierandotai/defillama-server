@@ -4,9 +4,13 @@ import { initPG, fetchFundingHistoryPG } from './db';
 import { perpsSlug } from './utils';
 import {
     findMarketById,
+    findMarketsByAssetGroup,
     findMarketsByCategory,
     findMarketsByContract,
     findMarketsByVenue,
+    getPerpsContractBreakdownFilePath,
+    getPerpsOverviewBreakdownFilePath,
+    parsePerpsChartTarget,
     resolvePerpsLookupId,
 } from './server-helpers';
 
@@ -118,61 +122,84 @@ export function setRoutes(router: HyperExpress.Router): void {
         })
     );
 
-    // Get markets by canonical market key (for example "xyz:META")
-    router.get(
-        '/contract/:contract',
-        errorWrapper(async (req, res) => {
-            const { contract } = req.params;
-            if (!contract) return errorResponse(res, 'Missing contract parameter', 400);
+    // ── Filtering by contract / venue / category ──────────────────────────
+
+    function filterRoute(
+        paramName: string,
+        filterFn: (data: any[], value: string) => any[],
+    ) {
+        return errorWrapper(async (req: HyperExpress.Request, res: HyperExpress.Response) => {
+            const value = req.params[paramName];
+            if (!value) return errorResponse(res, `Missing ${paramName} parameter`, 400);
 
             const currentData = await readRouteData('current.json');
             if (!currentData) return errorResponse(res, 'Data not found', 500);
 
-            const markets = findMarketsByContract(currentData, contract);
-            if (markets.length === 0) return errorResponse(res, `Contract "${contract}" not found`, 404);
-            return successResponse(res, markets, 20);
-        })
-    );
+            const results = filterFn(currentData, value);
+            if (results.length === 0) return errorResponse(res, `${paramName} "${value}" not found`, 404);
+            return successResponse(res, results, 20);
+        });
+    }
 
-    // ── Filtering ────────────────────────────────────────────────────────────
+    router.get('/contract/:contract', filterRoute('contract', findMarketsByContract));
+    router.get('/venue/:venue', filterRoute('venue', findMarketsByVenue));
+    router.get('/category/:category', filterRoute('category', findMarketsByCategory));
 
     router.get(
-        '/venue/:venue',
+        '/assetGroup/:assetGroup',
         errorWrapper(async (req, res) => {
-            const { venue } = req.params;
-            if (!venue) return errorResponse(res, 'Missing venue parameter', 400);
+            const { assetGroup } = req.params;
+            if (!assetGroup) return errorResponse(res, 'Missing assetGroup parameter', 400);
 
             const currentData = await readRouteData('current.json');
             if (!currentData) return errorResponse(res, 'Data not found', 500);
 
-            return successResponse(res, findMarketsByVenue(currentData, venue), 20);
-        })
-    );
-
-    router.get(
-        '/category/:category',
-        errorWrapper(async (req, res) => {
-            const { category } = req.params;
-            if (!category) return errorResponse(res, 'Missing category parameter', 400);
-
-            const currentData = await readRouteData('current.json');
-            if (!currentData) return errorResponse(res, 'Data not found', 500);
-
-            return successResponse(res, findMarketsByCategory(currentData, category), 20);
+            return successResponse(res, findMarketsByAssetGroup(currentData, assetGroup), 20);
         })
     );
 
     // ── Historical charts ────────────────────────────────────────────────────
 
     router.get(
-        '/chart/:id',
+        '/chart/overview-breakdown',
         errorWrapper(async (req, res) => {
-            const { id } = req.params;
-            if (!id) return errorResponse(res, 'Missing id parameter', 400);
+            const target = parsePerpsChartTarget({
+                venue: req.query.venue,
+                assetGroup: req.query.assetGroup,
+                assetClass: req.query.assetClass,
+                excludeAssetClass: req.query.excludeAssetClass,
+            });
+            if (!target) return errorResponse(res, 'Invalid target query parameters', 400);
 
-            const idMap = await readRouteData('id-map.json');
-            const resolvedId = resolvePerpsLookupId(idMap, id);
-            return fileResponse(`charts/${resolvedId || id}.json`, res, 30);
+            const filePath = getPerpsOverviewBreakdownFilePath({
+                target,
+                key: req.query.key,
+                breakdown: req.query.breakdown,
+            });
+            if (!filePath) return errorResponse(res, 'Invalid query parameters', 400);
+
+            return fileResponse(filePath, res, 30);
+        })
+    );
+
+    router.get(
+        '/chart/contract-breakdown',
+        errorWrapper(async (req, res) => {
+            const target = parsePerpsChartTarget({
+                venue: req.query.venue,
+                assetGroup: req.query.assetGroup,
+                assetClass: req.query.assetClass,
+                excludeAssetClass: req.query.excludeAssetClass,
+            });
+            if (!target) return errorResponse(res, 'Invalid target query parameters', 400);
+
+            const filePath = getPerpsContractBreakdownFilePath({
+                target,
+                key: req.query.key,
+            });
+            if (!filePath) return errorResponse(res, 'Invalid query parameters', 400);
+
+            return fileResponse(filePath, res, 30);
         })
     );
 
@@ -191,6 +218,18 @@ export function setRoutes(router: HyperExpress.Router): void {
             const { category } = req.params;
             if (!category) return errorResponse(res, 'Missing category parameter', 400);
             return fileResponse(`charts/category/${perpsSlug(category)}.json`, res, 30);
+        })
+    );
+
+    router.get(
+        '/chart/:id',
+        errorWrapper(async (req, res) => {
+            const { id } = req.params;
+            if (!id) return errorResponse(res, 'Missing id parameter', 400);
+
+            const idMap = await readRouteData('id-map.json');
+            const resolvedId = resolvePerpsLookupId(idMap, id);
+            return fileResponse(`charts/${resolvedId || id}.json`, res, 30);
         })
     );
 

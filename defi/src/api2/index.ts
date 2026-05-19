@@ -24,7 +24,7 @@ async function main() {
     res.append('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE,OPTIONS');
     res.append('Access-Control-Allow-Headers', '*');
 
-    (req as any).isProRequest = skipSubPath || req.headers['x-llama-pro-key'] === PRO_SECRET_KEY || req.query['x-llama-pro-key'] === PRO_SECRET_KEY;
+    (req as any).isProRequest = req.headers['x-llama-pro-key'] === PRO_SECRET_KEY || req.query['x-llama-pro-key'] === PRO_SECRET_KEY;
     // (req as any).isInternalRequest = skipSubPath || req.headers['x-llama-internal-key'] === LLAMA_INTERNAL_API_KEY || req.query['llama_internal_key'] === LLAMA_INTERNAL_API_KEY;
 
     next();
@@ -62,6 +62,10 @@ async function main() {
     const origin = req.headers.origin;
 
     const isFromDefiLlama = origin === 'https://defillama.com'
+
+    res.header('Access-Control-Allow-Origin', '*');
+    res.header('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE,OPTIONS');
+    res.header('Access-Control-Allow-Headers', '*');
 
     if (req.headers.authorization && !isFromDefiLlama) {
       res.status(403).send();

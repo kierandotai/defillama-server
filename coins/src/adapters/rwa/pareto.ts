@@ -27,6 +27,11 @@ const config: {
       target: "0x14B8E918848349D1e71e806a52c13D4e0d3246E0",
       decimals: 6,
     },
+    AA_RockawayXUSDC: {
+      address: "0xEC6a70F62a83418c7fb238182eD2865F80491a8B",
+      target: "0x9cF358aff79DeA96070A85F00c0AC79569970Ec3",
+      decimals: 6,
+    },
   },
   optimism: {
     AA_FalconXUSDC: {

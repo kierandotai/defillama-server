@@ -8,6 +8,8 @@ import { getRecordClosestToTimestamp } from "./utils/shared/getRecordClosestToTi
 import { quantisePeriod } from "./utils/timestampUtils";
 import { getBasicCoins } from "./utils/getCoinsUtils";
 import { lowercaseAddress } from "./utils/processCoin";
+
+// WARNING: changing this breaks it
 import { runInPromisePool } from "@defillama/sdk/build/generalUtil";
 
 function generateTimestamps(
@@ -69,7 +71,7 @@ async function fetchDBData(
               prices: [
                 {
                   timestamp: finalCoin.SK,
-                  price: finalCoin.price,
+                  price: Number(finalCoin.price),
                   confidence: coin.confidence,
                 },
               ],
@@ -77,7 +79,7 @@ async function fetchDBData(
           } else {
             response[coinName].prices.push({
               timestamp: finalCoin.SK,
-              price: finalCoin.price,
+              price: Number(finalCoin.price),
                 confidence: coin.confidence,
               });
             }

@@ -1,50 +1,6 @@
 {
-  "asset": {
-    "stateMutability": "view",
-    "type": "function",
-    "name": "asset",
-    "inputs": [],
-    "outputs": [
-      {
-        "name": "",
-        "type": "address"
-      }
-    ]
-  },
-  "symbol": {
-    "stateMutability": "view",
-    "type": "function",
-    "name": "symbol",
-    "inputs": [],
-    "outputs": [
-      {
-        "name": "",
-        "type": "string"
-      }
-    ]
-  },
-  "decimals": {
-    "stateMutability": "view",
-    "type": "function",
-    "name": "decimals",
-    "inputs": [],
-    "outputs": [
-      {
-        "name": "",
-        "type": "uint8"
-      }
-    ]
-  },
-  "pricePerShare": {
-    "stateMutability": "view",
-    "type": "function",
-    "name": "pricePerShare",
-    "inputs": [],
-    "outputs": [
-      {
-        "name": "",
-        "type": "uint256"
-      }
-    ]
-  }
+  "asset": "address:asset",
+  "symbol": "string:symbol",
+  "decimals": "uint8:decimals",
+  "pricePerShare": "uint256:pricePerShare"
 }

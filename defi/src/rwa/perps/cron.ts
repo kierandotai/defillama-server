@@ -18,10 +18,18 @@ import {
     fetchMaxUpdatedAtPG,
     fetchAllDailyIdsPG,
 } from './db';
-import { toFiniteNumberOrZero, groupBy } from './utils';
+import { getPercentChangeOrNull, toFiniteNumberOrZero, groupBy } from './utils';
 import { main as runPipeline } from './perps';
-import { buildCategoryHistoricalCharts, buildPerpsIdMap, buildVenueHistoricalCharts } from './aggregate';
-import { normalizePerpsMetadataInPlace } from './constants';
+import {
+    buildCategoryHistoricalCharts,
+    buildContractBreakdownCharts,
+    buildOverviewBreakdownCharts,
+    buildPerpsIdMap,
+    buildVenueHistoricalCharts
+} from './aggregate';
+import { normalizePerpsMetadataInPlace, hasContractMetadata } from './constants';
+import { buildPerpsList } from './list';
+import { normalizePerpsAssetGroup, sortPerpsMarketsByOpenInterest } from './server-helpers';
 
 interface PerpsMetadata {
     id: string;
@@ -36,7 +44,9 @@ async function generateCurrentData(metadata: PerpsMetadata[]): Promise<any[]> {
     const metadataMap = new Map<string, any>();
     metadata.forEach((m) => metadataMap.set(m.id, m.data));
 
-    const result = currentData.map((record: any) => {
+    const result = sortPerpsMarketsByOpenInterest(currentData
+        .filter((record: any) => metadataMap.has(record.id))
+        .map((record: any) => {
         const meta = metadataMap.get(record.id) || {};
         const merged = {
             ...(record.data || {}),
@@ -48,9 +58,15 @@ async function generateCurrentData(metadata: PerpsMetadata[]): Promise<any[]> {
             id: record.id,
             timestamp: record.timestamp,
             openInterest: toFiniteNumberOrZero(record.open_interest),
+            openInterestChange24h: record.is_latest_current
+                ? getPercentChangeOrNull(record.open_interest, record.prev_open_interest)
+                : null,
             volume24h: toFiniteNumberOrZero(record.volume_24h),
+            volume24hChange24h: record.is_latest_current
+                ? getPercentChangeOrNull(record.volume_24h, record.prev_volume_24h)
+                : null,
             price: toFiniteNumberOrZero(record.price),
-            priceChange24h: toFiniteNumberOrZero(record.price_change_24h),
+            priceChange24h: record.is_latest_current ? getPercentChangeOrNull(record.price, record.prev_price) : null,
             fundingRate: toFiniteNumberOrZero(record.funding_rate),
             premium: toFiniteNumberOrZero(record.premium),
             cumulativeFunding: toFiniteNumberOrZero(record.cumulative_funding),
@@ -58,7 +74,7 @@ async function generateCurrentData(metadata: PerpsMetadata[]): Promise<any[]> {
             contract: merged.contract || record.id,
             venue: merged.venue || record.id.split(':')[0] || 'unknown',
         };
-    });
+    }));
 
     await storeRouteData('current.json', result);
     console.log(`Generated current.json with ${result.length} markets in ${Date.now() - startTime}ms`);
@@ -69,7 +85,11 @@ async function generateIdMap(metadata: PerpsMetadata[]): Promise<void> {
     console.log('Generating ID map...');
     const idMap = buildPerpsIdMap(metadata);
     await storeRouteData('id-map.json', idMap);
-    console.log(`Generated id-map.json with ${Object.keys(idMap).length} entries`);
+    let idMapCount = 0;
+    for (const _id in idMap) {
+        idMapCount++;
+    }
+    console.log(`Generated id-map.json with ${idMapCount} entries`);
 }
 
 async function generateStats(currentData: any[]): Promise<void> {
@@ -80,6 +100,7 @@ async function generateStats(currentData: any[]): Promise<void> {
     let totalCumulativeFunding = 0;
     const venueStats: { [venue: string]: { openInterest: number; volume24h: number; markets: number } } = {};
     const categoryStats: { [cat: string]: { openInterest: number; volume24h: number; markets: number } } = {};
+    const assetGroupStats: { [assetGroup: string]: { openInterest: number; volume24h: number; markets: number } } = {};
 
     for (const market of currentData) {
         const oi = toFiniteNumberOrZero(market.openInterest);
@@ -105,6 +126,13 @@ async function generateStats(currentData: any[]): Promise<void> {
             categoryStats[cat].volume24h += vol;
             categoryStats[cat].markets++;
         }
+
+        // Asset-group stats
+        const assetGroup = normalizePerpsAssetGroup(market.referenceAssetGroup);
+        if (!assetGroupStats[assetGroup]) assetGroupStats[assetGroup] = { openInterest: 0, volume24h: 0, markets: 0 };
+        assetGroupStats[assetGroup].openInterest += oi;
+        assetGroupStats[assetGroup].volume24h += vol;
+        assetGroupStats[assetGroup].markets++;
     }
 
     const stats = {
@@ -114,6 +142,7 @@ async function generateStats(currentData: any[]): Promise<void> {
         totalCumulativeFunding,
         byVenue: venueStats,
         byCategory: categoryStats,
+        byAssetGroup: assetGroupStats,
         lastUpdated: new Date().toISOString(),
     };
 
@@ -123,19 +152,7 @@ async function generateStats(currentData: any[]): Promise<void> {
 
 async function generateList(currentData: any[]): Promise<void> {
     console.log('Generating list...');
-
-    const contracts = [...new Set(currentData.map((m: any) => m.contract).filter(Boolean))].sort();
-    const venues = [...new Set(currentData.map((m: any) => m.venue).filter(Boolean))].sort();
-    const categories = [...new Set(currentData.flatMap((m: any) => {
-        return Array.isArray(m.category) ? m.category : [m.category || 'Other'];
-    }))].sort();
-
-    const list = {
-        contracts,
-        venues,
-        categories,
-        total: currentData.length,
-    };
+    const list = buildPerpsList(currentData);
 
     await storeRouteData('list.json', list);
     console.log(`Generated list.json`);
@@ -158,7 +175,11 @@ async function generateHistoricalCharts(): Promise<void> {
     const recordsById = groupBy(allRecords, (r: any) => r.id);
     let processedCount = 0;
 
-    for (const [id, records] of Object.entries(recordsById)) {
+    for (const id in recordsById) {
+        // Skip delisted/unknown markets — keeps their per-ID chart file stale
+        // but prevents new data from being appended.
+        if (!hasContractMetadata(id)) continue;
+        const records = recordsById[id];
         const newData = records.map((r: any) => ({
             timestamp: r.timestamp,
             openInterest: toFiniteNumberOrZero(r.open_interest),
@@ -195,17 +216,51 @@ async function generateAggregateHistoricalCharts(metadata: PerpsMetadata[]): Pro
     const allDailyRecords = await fetchAllDailyRecordsPG();
     const venueCharts = buildVenueHistoricalCharts(allDailyRecords, metadata);
     const categoryCharts = buildCategoryHistoricalCharts(allDailyRecords, metadata);
+    const overviewBreakdownCharts = buildOverviewBreakdownCharts(allDailyRecords, metadata);
+    const contractBreakdownCharts = buildContractBreakdownCharts(allDailyRecords, metadata);
 
-    for (const [venueKey, rows] of Object.entries(venueCharts)) {
+    for (const venueKey in venueCharts) {
+        const rows = venueCharts[venueKey];
         await storeRouteData(`charts/venue/${venueKey}.json`, rows);
     }
 
-    for (const [categoryKey, rows] of Object.entries(categoryCharts)) {
+    for (const categoryKey in categoryCharts) {
+        const rows = categoryCharts[categoryKey];
         await storeRouteData(`charts/category/${categoryKey}.json`, rows);
     }
 
+    for (const subPath in overviewBreakdownCharts) {
+        const rows = overviewBreakdownCharts[subPath];
+        await storeRouteData(`charts/${subPath}`, rows);
+    }
+
+    for (const subPath in contractBreakdownCharts) {
+        const rows = contractBreakdownCharts[subPath];
+        await storeRouteData(`charts/${subPath}`, rows);
+    }
+
+    let venueChartCount = 0;
+    for (const _venue in venueCharts) {
+        venueChartCount++;
+    }
+
+    let categoryChartCount = 0;
+    for (const _category in categoryCharts) {
+        categoryChartCount++;
+    }
+
+    let overviewBreakdownCount = 0;
+    for (const _subPath in overviewBreakdownCharts) {
+        overviewBreakdownCount++;
+    }
+
+    let contractBreakdownCount = 0;
+    for (const _subPath in contractBreakdownCharts) {
+        contractBreakdownCount++;
+    }
+
     console.log(
-        `Generated aggregate historical charts for ${Object.keys(venueCharts).length} venues and ${Object.keys(categoryCharts).length} categories`
+        `Generated aggregate historical charts for ${venueChartCount} venues, ${categoryChartCount} categories, ${overviewBreakdownCount} overview breakdowns, and ${contractBreakdownCount} contract breakdowns`
     );
 }
 
@@ -226,9 +281,12 @@ async function cron(): Promise<void> {
     console.log('[rwa-perps-cron] Running data pipeline...');
     await runPipeline();
 
-    // 3. Fetch metadata
-    const metadata = await fetchMetadataPG();
-    console.log(`[rwa-perps-cron] Loaded ${metadata.length} metadata records`);
+    // 3. Fetch metadata — runPipeline() above re-loaded CONTRACT_METADATA from Airtable,
+    //    so `hasContractMetadata` excludes both unknown and delisted contracts.
+    const allMetadata = await fetchMetadataPG();
+    const metadata = allMetadata.filter((m: any) => hasContractMetadata(m.id));
+    const excludedCount = allMetadata.length - metadata.length;
+    console.log(`[rwa-perps-cron] Loaded ${metadata.length} metadata records (excluded ${excludedCount} delisted/unknown)`);
 
     // 4. Generate cache files
     const currentData = await generateCurrentData(metadata);

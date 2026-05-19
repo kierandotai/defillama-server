@@ -115,6 +115,90 @@ describe("storeGetProtocols visible chain filtering", () => {
     expect(protocols2Data.chains).not.toContain("HyperEVM");
   });
 
+  test("storeGetProtocols includes chains backed only by excluded chart categories", async () => {
+    mockedCraftProtocolsResponse.mockResolvedValue([
+      {
+        id: "1",
+        name: "Visible Protocol",
+        category: "Lending",
+        chains: ["Ethereum"],
+        chainTvls: { Ethereum: 100 },
+        oraclesByChain: {},
+        symbol: "VP",
+        logo: "",
+        url: "",
+        referralUrl: "",
+        parentProtocol: undefined,
+        governanceID: undefined,
+        gecko_id: undefined,
+        tvl: 100,
+      } as any,
+      {
+        id: "2",
+        name: "RWA Protocol",
+        category: "RWA",
+        chains: ["Pharos"],
+        chainTvls: { Pharos: 50 },
+        oraclesByChain: {},
+        symbol: "RP",
+        logo: "",
+        url: "",
+        referralUrl: "",
+        parentProtocol: undefined,
+        governanceID: undefined,
+        gecko_id: undefined,
+        tvl: 50,
+      } as any,
+    ]);
+    mockedGetProtocolTvl.mockImplementation(async (protocol: any) => {
+      if (protocol.id === "2") {
+        return {
+          tvl: 50,
+          tvlPrevDay: 45,
+          tvlPrevWeek: 40,
+          tvlPrevMonth: 35,
+          chainTvls: {
+            Pharos: {
+              tvl: 50,
+              tvlPrevDay: 45,
+              tvlPrevWeek: 40,
+              tvlPrevMonth: 35,
+            },
+          },
+        } as any;
+      }
+
+      return {
+        tvl: 100,
+        tvlPrevDay: 90,
+        tvlPrevWeek: 80,
+        tvlPrevMonth: 70,
+        chainTvls: {
+          Ethereum: {
+            tvl: 100,
+            tvlPrevDay: 90,
+            tvlPrevWeek: 80,
+            tvlPrevMonth: 70,
+          },
+        },
+      } as any;
+    });
+    mockedReadRouteData.mockResolvedValue({
+      ethereum: {
+        fees: {
+          df: { "24h": 1 },
+        },
+      },
+    });
+
+    const { protocols2Data } = await storeGetProtocols({
+      getCoinMarkets: async () => ({}),
+    });
+
+    expect(protocols2Data.protocols.map((p: any) => p.chains)).toEqual([["Ethereum"], ["Pharos"]]);
+    expect(protocols2Data.chains).toEqual(["Ethereum", "Pharos"]);
+  });
+
   test("storeGetProtocols falls back to cached visible chains when dimensions cache is missing or empty", async () => {
     mockedCraftProtocolsResponse.mockResolvedValue([
       {

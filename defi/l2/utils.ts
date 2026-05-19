@@ -114,21 +114,57 @@ async function getOsmosisSupplies(tokens: string[], timestamp?: number): Promise
 async function getAptosSupplies(tokens: string[], timestamp?: number): Promise<{ [token: string]: number }> {
   if (timestamp) throw new Error(`timestamp incompatible with Aptos adapter!`);
   const supplies: { [token: string]: number } = {};
+  const rpc = process.env.APTOS_RPC;
 
   await PromisePool.withConcurrency(1)
     .for(tokens)
     .process(async (token) => {
       try {
-        const res = await fetch(
-          `${process.env.APTOS_RPC}/v1/accounts/${token.substring(
-            0,
-            token.indexOf("::")
-          )}/resource/0x1::coin::CoinInfo%3C${token}%3E`
+        const isCoinType = token.includes("::");
+        if (isCoinType) {
+          // Legacy Coin standard: fetch CoinInfo resource
+          const accountAddr = token.substring(0, token.indexOf("::"));
+          const res = await fetch(
+            `${rpc}/v1/accounts/${accountAddr}/resource/0x1::coin::CoinInfo%3C${token}%3E`
+          ).then((r) => r.json());
+          if (res?.data?.supply?.vec?.[0]?.integer?.vec?.[0]?.value != null) {
+            supplies[`aptos:${token}`] = res.data.supply.vec[0].integer.vec[0].value;
+            return;
+          }
+          if (res?.data?.supply?.vec?.[0]?.aggregator?.vec?.[0]?.handle) {
+            // Aggregator-based supply (e.g. native APT) — resolve via table item
+            const { handle, key } = res.data.supply.vec[0].aggregator.vec[0];
+            const aggRes = await fetch(`${rpc}/v1/tables/${handle}/item`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ key_type: "address", value_type: "u128", key }),
+            }).then((r) => r.json());
+            if (typeof aggRes === "string" || typeof aggRes === "number") {
+              supplies[`aptos:${token}`] = Number(aggRes);
+              return;
+            }
+          }
+        }
+
+        // Fungible Asset standard: token is an object address (no "::")
+        const objectAddr = isCoinType ? token.substring(0, token.indexOf("::")) : token;
+        // Try ConcurrentSupply first (newer)
+        const concurrentRes = await fetch(
+          `${rpc}/v1/accounts/${objectAddr}/resource/0x1::fungible_asset::ConcurrentSupply`
         ).then((r) => r.json());
-        if (res && res.data && res.data.supply)
-          supplies[`aptos:${token}`] = res.data.supply.vec[0].integer.vec[0].value;
+        if (concurrentRes?.data?.current?.value != null) {
+          supplies[`aptos:${token}`] = Number(concurrentRes.data.current.value);
+          return;
+        }
+        // Fall back to Supply resource
+        const supplyRes = await fetch(
+          `${rpc}/v1/accounts/${objectAddr}/resource/0x1::fungible_asset::Supply`
+        ).then((r) => r.json());
+        if (supplyRes?.data?.current != null) {
+          supplies[`aptos:${token}`] = Number(supplyRes.data.current);
+        }
       } catch (e) {
-        // console.log(token);
+        // silent — supply will be missing and logged upstream
       }
     });
 
@@ -293,6 +329,47 @@ async function getStellarSupplies(tokens: string[], timestamp?: number): Promise
   return supplies;
 }
 
+async function getStarknetSupplies(tokens: string[], timestamp?: number): Promise<{ [token: string]: number }> {
+  if (timestamp) throw new Error(`timestamp incompatible with Starknet adapter!`);
+  const supplies: { [token: string]: number } = {};
+  const STARKNET_RPC = process.env.STARKNET_RPC ?? "https://starknet-mainnet.public.blastapi.io";
+  const TOTAL_SUPPLY_SELECTOR = "0x1557182e4359a1f0c6301278e8f5b35a776ab58d39892581e357578fb287836";
+
+  await PromisePool.withConcurrency(5)
+    .for(tokens)
+    .process(async (token) => {
+      try {
+        const res = await fetch(STARKNET_RPC, {
+          method: "POST",
+          body: JSON.stringify({
+            jsonrpc: "2.0",
+            id: 1,
+            method: "starknet_call",
+            params: [
+              {
+                contract_address: token,
+                entry_point_selector: TOTAL_SUPPLY_SELECTOR,
+                calldata: [],
+              },
+              "latest",
+            ],
+          }),
+          headers: { "Content-Type": "application/json" },
+        }).then((r) => r.json());
+        if (res?.result && res.result.length >= 2) {
+          const low = new BigNumber(res.result[0]);
+          const high = new BigNumber(res.result[1]);
+          const supply = low.plus(high.times(new BigNumber(2).pow(128)));
+          if (supply.gt(0)) supplies[`starknet:${token}`] = supply.toNumber();
+        }
+      } catch (e) {
+        e
+      }
+    });
+
+  return supplies;
+}
+
 async function getSuiSupplies(tokens: Address[], timestamp?: number): Promise<{ [token: string]: number }> {
   if (timestamp) throw new Error(`timestamp incompatible with Sui adapter!`);
   const supplies: { [token: string]: number } = {};
@@ -381,6 +458,7 @@ export async function fetchSupplies(
     if (chain == "sui") return await getSuiSupplies(tokens, timestamp);
     if (chain == "provenance") return await getProvenanceSupplies(tokens, timestamp);
     if (chain == "stellar") return await getStellarSupplies(tokens, timestamp);
+    if (chain == "starknet") return await getStarknetSupplies(tokens, timestamp);
     return await getEVMSupplies(chain, tokens, timestamp);
   } catch (e) {
     throw new Error(`multicalling token supplies failed for chain ${chain} with ${e}`);
@@ -394,16 +472,22 @@ export async function fetchBridgeTokenList(chain: Chain): Promise<Address[]> {
       chain in excluded ? tokens.filter((t: string) => !excluded[chain].includes(t)) : tokens;
     if (!bridgedTvlMixedCaseChains.includes(chain)) filteredTokens = filteredTokens.map((t: string) => t.toLowerCase());
 
-    if (!(chain in additional)) return filteredTokens;
+    if (!(chain in additional)) return dropInvalidAddresses(filteredTokens);
 
     const additionalTokens = bridgedTvlMixedCaseChains.includes(chain)
       ? additional[chain]
       : additional[chain].map((t: string) => t.toLowerCase());
 
-    return [...new Set([...filteredTokens, ...additionalTokens])];
+    return dropInvalidAddresses([...new Set([...filteredTokens, ...additionalTokens])]);
   } catch (e) {
     throw new Error(`${chain} bridge adapter failed with ${e}`);
   }
+}
+
+function dropInvalidAddresses(tokens: Address[]): Address[] {
+  return tokens.filter(
+    (t: unknown): t is string => typeof t === "string" && t.length > 0 && t !== "null" && t !== "undefined"
+  );
 }
 
 const letterToSeconds: { [symbol: string]: number } = {

@@ -25,6 +25,25 @@ function getPercentage(a: number, b: number) {
 const validMetricTypesSet = new Set(Object.values(AdapterType)) as Set<string>
 const validRecordTypesSet = new Set(Object.values(AdaptorRecordType)) as Set<string>
 const unixStartOfTodayTimestamp = timeSToUnix(getTimeSDaysAgo(0))
+const protocolChainBreakdownKeys = [
+  'total24h',
+  'total48hto24h',
+  'total7d',
+  'total14dto7d',
+  'total30d',
+  'total60dto30d',
+  'total1y',
+  'total7DaysAgo',
+  'total30DaysAgo',
+  'totalAllTime',
+  'average1y',
+  'monthlyAverage1y',
+  'change_1d',
+  'change_7d',
+  'change_1m',
+  'change_7dover7d',
+  'change_30dover30d',
+] as const
 
 function getEventParameters(req: HyperExpress.Request, isSummary = true) {
   const isProRoute = !!(req as any).isProRoute as boolean
@@ -40,7 +59,10 @@ function getEventParameters(req: HyperExpress.Request, isSummary = true) {
   if (!validMetricTypesSet.has(adaptorType)) throw new Error(`Adaptor ${adaptorType} not supported`)
   if (!validRecordTypesSet.has(dataType)) throw new Error("Data type not suported")
   
-  const category = req.path_parameters.category ? sluggifyCategoryString(req.path_parameters.category) : undefined;
+  let category = req.path_parameters.category ? sluggifyCategoryString(req.path_parameters.category) : undefined;
+  if (!category) {
+    category = req.query_parameters.category ? sluggifyCategoryString(req.query_parameters.category) : undefined;
+  }
 
   const response: {
     adaptorType: AdapterType,
@@ -325,6 +347,8 @@ async function getProtocolDataHandler({
   }
   response.change_1d = getPercentage(summary.total24h, summary.total48hto24h)
 
+  response.chainBreakdown = formatProtocolChainBreakdown(summary.chainSummary)
+
   return response
 
 
@@ -339,6 +363,24 @@ async function getProtocolDataHandler({
       })
     })
     if (!Object.keys(res).length) return null
+    return res
+  }
+
+  function formatProtocolChainBreakdown(chainSummary: any = {}) {
+    const res: IJSON<IJSON<number | null>> = {}
+
+    Object.entries(chainSummary ?? {}).forEach(([chainKey, chainData]: any) => {
+      const chainLabel = getChainLabelFromKey(chainKey)
+      const formattedChainData: IJSON<number | null> = {}
+
+      protocolChainBreakdownKeys.forEach((key) => {
+        if (chainData?.[key] !== undefined) formattedChainData[key] = chainData[key]
+      })
+
+      if (Object.keys(formattedChainData).length) res[chainLabel] = formattedChainData
+    })
+
+    if (!Object.keys(res).length) return undefined
     return res
   }
 }
@@ -398,10 +440,25 @@ export async function getDimensionProtocolFileRoute(req: HyperExpress.Request, r
   return successResponse(res, data)
 }
 
+// these adapter types require category query param when query data
+// use default category if category query param wasn't given
+const DefaultAdapterTypeCategoryMap: Record<string, string> = {
+  [AdapterType.DEXS]: 'dexs',
+  [AdapterType.DERIVATIVES]: 'derivatives',
+  [AdapterType.NORMALIZED_VOLUME]: 'derivatives',
+  [AdapterType.OPEN_INTEREST]: 'derivatives',
+  [AdapterType.OPTIONS]: 'options',
+}
+
 export function getDimensionOverviewRoutes(route: 'overview' | 'chart' | 'chart-chain-breakdown' | 'chart-protocol-breakdown') {
   return async function (req: HyperExpress.Request, res: HyperExpress.Response) {
-    const { adaptorType, dataType } = getEventParameters(req, true)
+    const { adaptorType, dataType, category } = getEventParameters(req, true)
 
+    // retrun a subnet of protocol (per category) only
+    if (Object.keys(DefaultAdapterTypeCategoryMap).includes(adaptorType)) {
+      return await returnSubCategoryData();
+    }
+    
     if (route === 'chart-chain-breakdown') {
       const routeFile = `dimensions/${adaptorType}/${dataType}/chain-total-data-chart`
       return fileResponse(routeFile, res)
@@ -427,13 +484,36 @@ export function getDimensionOverviewRoutes(route: 'overview' | 'chart' | 'chart-
         }
       }
     }
+    
+    // return data in a given category
+    async function returnSubCategoryData() {
+      let filterCategory = category;
+      if (!filterCategory) filterCategory = DefaultAdapterTypeCategoryMap[adaptorType];
+      
+      let routeFileExt = '';
+      if (route === 'overview') routeFileExt = '';
+      else routeFileExt += route;
+      const routeSubPath = `${adaptorType}/${dataType}-category/${filterCategory}-${routeFileExt}`;
+      const routeFile = `dimensions/${routeSubPath}`; 
+      
+      const data = await readRouteData(routeFile);
+  
+      if (!data) return errorResponse(res, 'Internal server error', { statusCode: 500 });
+  
+      return successResponse(res, data);
+    }
   }
 }
 
 export function getDimensionChainRoutes(route: 'overview' | 'chart' | 'chart-protocol-breakdown') {
   return async function (req: HyperExpress.Request, res: HyperExpress.Response) {
-    const { adaptorType, dataType, chainKeyFilter } = getEventParameters(req, true)
+    const { adaptorType, dataType, chainKeyFilter, category } = getEventParameters(req, true)
 
+    // retrun a subnet of protocol (per category) only
+    if (Object.keys(DefaultAdapterTypeCategoryMap).includes(adaptorType)) {
+      return await returnSubCategoryChainData();
+    }
+    
     const isLiteStr = route === 'overview' ? '-lite' : '-all'
     const chainStr = (chainKeyFilter && chainKeyFilter !== 'all') ? `-chain/${chainKeyFilter}` : ''
     const routeSubPath = `${adaptorType}/${dataType}${chainStr}${isLiteStr}`
@@ -455,6 +535,24 @@ export function getDimensionChainRoutes(route: 'overview' | 'chart' | 'chart-pro
         return successResponse(res, data.totalDataChart)
       }
     }
+    
+    // return data in a given category - chain
+    async function returnSubCategoryChainData() {
+      let filterCategory = category;
+      if (!filterCategory) filterCategory = DefaultAdapterTypeCategoryMap[adaptorType];
+      
+      let routeFileExt = '';
+      if (route === 'overview') routeFileExt = '';
+      else routeFileExt += route;
+      const routeSubPath = `${adaptorType}/${dataType}-category/${filterCategory}-chain/${chainKeyFilter}-${routeFileExt}`;
+      const routeFile = `dimensions/${routeSubPath}`;
+      
+      const data = await readRouteData(routeFile);
+  
+      if (!data) return errorResponse(res, 'Internal server error', { statusCode: 500 });
+  
+      return successResponse(res, data);
+    }
   }
 }
 
@@ -467,7 +565,7 @@ export function getDimensionCategoryRoutes(route: 'overview' | 'chart' | 'chart-
     let routeFileExt = '';
     if (route === 'overview') routeFileExt = '';
     else routeFileExt += route;
-    const routeSubPath = `${adaptorType}/${dataType}-category/${category}${routeFileExt}`;
+    const routeSubPath = `${adaptorType}/${dataType}-category/${category}-${routeFileExt}`;
     const routeFile = `dimensions/${routeSubPath}`; 
     
     const data = await readRouteData(routeFile);
@@ -487,7 +585,7 @@ export function getDimensionCategoryChainRoutes(route: 'overview' | 'chart' | 'c
     let routeFileExt = '';
     if (route === 'overview') routeFileExt = '';
     else routeFileExt += route;
-    const routeSubPath = `${adaptorType}/${dataType}-category/${category}-chain/${chainKeyFilter}${routeFileExt}`;
+    const routeSubPath = `${adaptorType}/${dataType}-category/${category}-chain/${chainKeyFilter}-${routeFileExt}`;
     const routeFile = `dimensions/${routeSubPath}`; 
     
     const data = await readRouteData(routeFile);
@@ -523,7 +621,8 @@ export function getDimensionProtocolRoutes(route: 'overview' | 'chart' | 'chart-
 }
 
 async function getProtocolFinancials(req: HyperExpress.Request, res: HyperExpress.Response) {
-  validateProRequest(req, res)  // ensure that only pro users can access financial statement data
+  const isValid = validateProRequest(req, res)  // ensure that only pro users can access financial statement data
+  if (!isValid) return;
 
   const protocolSlug = sluggifyString(req.path_parameters.name?.toLowerCase())
   const routeSubPath = `${AdapterType.FEES}/agg-protocol/${protocolSlug}`
@@ -778,6 +877,8 @@ export async function generateDimensionsResponseFiles(cache: Record<AdapterType,
         if (!protocol.dataTypes?.has(recordType)) continue; // skip if the protocol does not have data for this record type
 
         const data = await getProtocolDataHandler({ recordType, protocolData: protocol })
+
+        if (![AdapterType.DEXS, AdapterType.DERIVATIVES, AdapterType.FEES].includes(adapterType)) delete data.chainBreakdown
 
         if (!data.totalDataChart?.length) continue; // skip if there is no data
 

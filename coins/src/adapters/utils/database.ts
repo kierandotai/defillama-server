@@ -20,10 +20,10 @@ import { staleMargin } from "../../utils/coingeckoPlatforms";
 import * as sdk from '@defillama/sdk'
 const { sliceIntoChunks, } = sdk.util
 
-import produceKafkaTopics from "../../utils/coins3/produce";
 import { lowercase } from "../../utils/coingeckoPlatforms";
 import { sendMessage } from "../../../../defi/src/utils/discord";
 import { chainsThatShouldNotBeLowerCased } from "../../utils/shared/constants";
+import { dualWriteToChRedis } from "./chRedisWrite";
 
 function normalizedPKFor(pk: string): string {
   if (pk.startsWith("coingecko#")) return pk.toLowerCase();
@@ -149,11 +149,12 @@ export function addToDBWritesList(
     chain == "coingecko"
       ? `coingecko#${token.toLowerCase()}`
       : `asset#${chain}:${lowercase(token, chain)}`;
+  const priceNum = price == null ? undefined : Number(price);
   if (redirect && timestamp == 0) {
     writes.push({
       SK: 0,
       PK,
-      price,
+      price: priceNum,
       symbol,
       decimals: Number(decimals),
       redirect,
@@ -167,14 +168,14 @@ export function addToDBWritesList(
         {
           SK: getCurrentUnixTimestamp(),
           PK,
-          price,
+          price: priceNum,
           adapter,
           confidence: Number(confidence),
         },
         {
           SK: 0,
           PK,
-          price,
+          price: priceNum,
           symbol,
           decimals: Number(decimals),
           redirect,
@@ -192,7 +193,7 @@ export function addToDBWritesList(
       SK: timestamp,
       PK,
       redirect,
-      price,
+      price: priceNum,
       adapter,
       confidence: Number(confidence),
     });
@@ -390,7 +391,8 @@ export async function filterWritesWithLowConfidence(
   // For asset writes with a stale coingecko redirect, rewrite PK to coingecko#<id>
   // so all chain deployments get repriced from this secondary source
   const redirectMap: Record<string, string> = {}; // asset PK -> coingecko PK
-  let staleCgEntries: Record<string, any> = {}; // cgPK -> entry (stale, or absent from batchGet)
+  const missingCgPKs = new Set<string>();
+  let staleCgEntries: Record<string, any> = {}; // cgPK -> stale/non-CG entry
 
   const assetWrites = filteredWrites.filter(
     (w) => w?.PK?.startsWith("asset#") && w.confidence >= staleCgConfidenceThreshold,
@@ -412,7 +414,10 @@ export async function filterWritesWithLowConfidence(
       const now = getCurrentUnixTimestamp();
       const returnedPKs = new Set(cgEntries.map((e: any) => e?.PK).filter(Boolean));
       for (const pk of uniqueCgPKs) {
-        if (!returnedPKs.has(pk)) sdk.log(`filterWrites: CG entry ${pk} missing, skipping override`);
+        if (!returnedPKs.has(pk)) {
+          missingCgPKs.add(pk);
+          sdk.log(`filterWrites: CG entry ${pk} missing, skipping override`);
+        }
       }
       for (const entry of cgEntries) {
         if (!entry) continue;
@@ -464,7 +469,8 @@ export async function filterWritesWithLowConfidence(
     if (!f.PK?.startsWith("asset#")) return true;
     const cgPK = redirectMap[f.PK];
     if (!cgPK) return true; // no CG redirect, keep it
-    if (staleCgEntries[cgPK]) return true; // CG is stale or missing, keep it (was already rewritten above)
+    if (missingCgPKs.has(cgPK)) return true; // no CG entry to compare against, keep the asset write
+    if (staleCgEntries[cgPK]) return true; // CG is stale/non-CG, keep the asset write or rewritten winner
     return false; // CG is fresh, drop the redundant asset write
   });
 }
@@ -518,9 +524,8 @@ export async function batchWriteWithAlerts(
       (await checkMovement(items, previousItems, veryStaleItems)).filter((i: any) => isFinite(i.price) || i.redirect);
     const writeItems = [...filteredItems, ...redirectChanges]
     const ddbWriteResult = await batchWrite(writeItems, failOnError);
-    await produceKafkaTopics(writeItems as any[]);
 
-    // Dual-write: normalized PKs to DDB only (no Kafka, no alerts)
+    // Dual-write: normalized PKs to DDB only (no alerts)
     const normalizedMap = new Map<string, any>();
     writeItems.forEach((item: any) => {
       const nPK = normalizedPKFor(item.PK);
@@ -533,6 +538,14 @@ export async function batchWriteWithAlerts(
     if (normalizedItems.length > 0) {
       await batchWrite(normalizedItems, false);
     }
+
+    // Dual-write: ClickHouse + Redis (independent — Redis writes even if CH fails)
+    const allItems = [...writeItems, ...normalizedItems];
+    await dualWriteToChRedis(allItems).catch(e => {
+      console.error(`[CH/Redis dual-write] non-fatal error: ${(e as Error).message}`);
+      if (process.env.URGENT_COINS_WEBHOOK)
+        sendMessage(`[CH/Redis dual-write] ${(e as Error).message}`, process.env.URGENT_COINS_WEBHOOK!, false).catch(() => {});
+    });
 
     return ddbWriteResult;
   } catch (e) {

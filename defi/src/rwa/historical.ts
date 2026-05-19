@@ -3,7 +3,9 @@ import { initPG, storeHistoricalPG, storeMetadataPG,  } from "./db";
 import { protocolIdMap } from "./constants";
 import { RWA_KEY_MAP } from "./metadataConstants";
 import { sendMessage } from "../utils/discord";
-import { runInPromisePool } from "@defillama/sdk/build/generalUtil";
+
+import * as sdk from '@defillama/sdk'
+const { runInPromisePool } = sdk.util;
 
 const inverseProtocolIdMap: { [name: string]: string } = Object.entries(protocolIdMap).reduce(
   (acc: { [name: string]: string }, [id, name]: [string, string]) => {

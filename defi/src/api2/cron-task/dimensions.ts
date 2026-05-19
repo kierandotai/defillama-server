@@ -219,6 +219,11 @@ ${tableToString(invalidFinancialStatementRecords, ['protocol', 'timeframe', 'key
     adapterData.parentProtocolSummaries = parentProtocolSummaries
 
     for (const [_dimensionProtocolId, dimensionProtocolInfo] of Object.entries(dimensionProtocolMap) as any) {
+      if (dimensionProtocolInfo.disableFromResponse) {
+        // console.log('Skipping protocol in response due to disableFromResponse flag', dimensionProtocolInfo.name, dimensionProtocolInfo.id, adapterType)
+        continue;
+      }
+
       const hasAppMetrics = adapterType === AdapterType.FEES && getProtocolAppMetricsFlag(dimensionProtocolInfo)
       addProtocolData({ protocolId: dimensionProtocolInfo.id2, dimensionProtocolInfo, isParentProtocol: false, adapterType, skipChainSummary: false, hasAppMetrics, })
     }
@@ -231,7 +236,7 @@ ${tableToString(invalidFinancialStatementRecords, ['protocol', 'timeframe', 'key
         continue;
       }
       const parentProtocol: any = { info, }
-      const childDimensionsInfo = childProtocols.map((child: any) => dimensionProtocolMap[child.info.id2] ?? dimensionProtocolMap[child.info.id]).map((i: any) => i)
+      const childDimensionsInfo = childProtocols.map((child: any) => dimensionProtocolMap[child.info.id2] ?? dimensionProtocolMap[child.info.id]).map((i: any) => i).filter((i: any) => !i.disableFromResponse) 
 
       mergeChildRecords(parentProtocol, childProtocols)
       addProtocolData({
@@ -259,6 +264,7 @@ ${tableToString(invalidFinancialStatementRecords, ['protocol', 'timeframe', 'key
     }
 
     function addProtocolData({ protocolId, dimensionProtocolInfo = ({} as any), isParentProtocol = false, adapterType, skipChainSummary = false, records, hasAppMetrics = false, }: { isParentProtocol: boolean, adapterType: AdapterType, skipChainSummary: boolean, records?: any, protocolId: string, dimensionProtocolInfo?: ProtocolAdaptor, hasAppMetrics?: boolean }) {
+      
 
       if (isParentProtocol) skipChainSummary = true
       if (dimensionProtocolInfo.doublecounted) skipChainSummary = true
@@ -363,7 +369,7 @@ ${tableToString(invalidFinancialStatementRecords, ['protocol', 'timeframe', 'key
               summary.chartBreakdown[timeS] = {}
             }
 
-            summary.chart[timeS] += value
+            summary.chart[timeS] += getNonNegativeValue(value)
             summary.chartBreakdown[timeS][protocolName] = value
           }
 
@@ -407,20 +413,6 @@ ${tableToString(invalidFinancialStatementRecords, ['protocol', 'timeframe', 'key
               protocol.info.chains.push(chainLabel)
               protocolChainKeySet.add(chain)
             }
-
-
-            if (skipChainSummary) return;
-            if (!value) return; // skip zero values
-            if (!summary.chainSummary![chain])
-              summary.chainSummary![chain] = initSummaryItem(true)
-            const chainSummary = summary.chainSummary![chain]
-
-            if (!chainSummary.earliestTimestamp || timestamp < chainSummary.earliestTimestamp)
-              chainSummary.earliestTimestamp = timestamp
-
-            chainSummary.chart[timeS] = (chainSummary.chart[timeS] ?? 0) + value
-            if (!chainSummary.chartBreakdown[timeS]) chainSummary.chartBreakdown[timeS] = {}
-            chainSummary.chartBreakdown[timeS][protocolName] = value
             
             // add to categorySummary, only child protocols and not chains
             if (!isParentProtocol && protocol.info.protocolType !== ProtocolType.CHAIN) {
@@ -433,10 +425,10 @@ ${tableToString(invalidFinancialStatementRecords, ['protocol', 'timeframe', 'key
                 const categorySummary = summary.categorySummary[category]
                 if (!categorySummary.earliestTimestamp || timestamp < categorySummary.earliestTimestamp) categorySummary.earliestTimestamp = timestamp
                 // categorySummary total chart
-                categorySummary.chart[timeS] = (categorySummary.chart[timeS] ?? 0) + value;
+                categorySummary.chart[timeS] = (categorySummary.chart[timeS] ?? 0) + getNonNegativeValue(value);
                 // categorySummary protocol breakdown chart
                 categorySummary.chartBreakdown[timeS] = categorySummary.chartBreakdown[timeS] || {};
-                categorySummary.chartBreakdown[timeS][protocolName] = (categorySummary.chartBreakdown[timeS][protocolName] ?? 0) + value;
+                categorySummary.chartBreakdown[timeS][protocolName] = (categorySummary.chartBreakdown[timeS][protocolName] ?? 0) + getNonNegativeValue(value);
                 
                 // add to categorySummary.chainSummary
                 summary.categorySummary[category].chainSummary = summary.categorySummary[category].chainSummary || {};
@@ -444,12 +436,25 @@ ${tableToString(invalidFinancialStatementRecords, ['protocol', 'timeframe', 'key
                 const categoryChainSummary = summary.categorySummary[category].chainSummary[chain]
                 if (!categoryChainSummary.earliestTimestamp || timestamp < categoryChainSummary.earliestTimestamp) categoryChainSummary.earliestTimestamp = timestamp
                 // categorySummary.chainSummary total chart
-                categoryChainSummary.chart[timeS] = (categoryChainSummary.chart[timeS] ?? 0) + value;
+                categoryChainSummary.chart[timeS] = (categoryChainSummary.chart[timeS] ?? 0) + getNonNegativeValue(value);
                 // categorySummary.chainSummary breakdown by protocol chart
                 categoryChainSummary.chartBreakdown[timeS] = categoryChainSummary.chartBreakdown[timeS] || {};
-                categoryChainSummary.chartBreakdown[timeS][protocolName] = (categoryChainSummary.chartBreakdown[timeS][protocolName] ?? 0) + value;
+                categoryChainSummary.chartBreakdown[timeS][protocolName] = (categoryChainSummary.chartBreakdown[timeS][protocolName] ?? 0) + getNonNegativeValue(value);
               }
             }
+
+            if (skipChainSummary) return;
+            if (!value) return; // skip zero values
+            if (!summary.chainSummary![chain])
+              summary.chainSummary![chain] = initSummaryItem(true)
+            const chainSummary = summary.chainSummary![chain]
+
+            if (!chainSummary.earliestTimestamp || timestamp < chainSummary.earliestTimestamp)
+              chainSummary.earliestTimestamp = timestamp
+
+            chainSummary.chart[timeS] = (chainSummary.chart[timeS] ?? 0) + getNonNegativeValue(value)
+            if (!chainSummary.chartBreakdown[timeS]) chainSummary.chartBreakdown[timeS] = {}
+            chainSummary.chartBreakdown[timeS][protocolName] = value
           })
         }
       }
@@ -535,7 +540,7 @@ ${tableToString(invalidFinancialStatementRecords, ['protocol', 'timeframe', 'key
               if (!protocolSummary.chainSummary![chain]) protocolSummary.chainSummary![chain] = initSummaryItem(true)
               const chainSummary = protocolSummary.chainSummary![chain] as ProtocolSummary
               if (!chainSummary.totalAllTime) chainSummary.totalAllTime = 0
-              chainSummary.totalAllTime += value
+              chainSummary.totalAllTime += getNonNegativeValue(value)
               if ((chainsTotal as any)[chain])
                 chainSummary.totalAllTime = (chainsTotal as any)[chain]
             })
@@ -670,7 +675,7 @@ ${tableToString(invalidFinancialStatementRecords, ['protocol', 'timeframe', 'key
           const chainSummary = summary.chainSummary![chain]
 
           if (!chainSummary[chainSummaryKey!]) chainSummary[chainSummaryKey!] = 0
-          chainSummary[chainSummaryKey!] += value
+          chainSummary[chainSummaryKey!] += getNonNegativeValue(value)
         })
       })
     }
@@ -688,12 +693,12 @@ ${tableToString(invalidFinancialStatementRecords, ['protocol', 'timeframe', 'key
           summaries[recordType].categorySummary[category] = summaries[recordType].categorySummary[category] || initSummaryItem();
           
           const categorySummary = summaries[recordType].categorySummary[category] as any;
-          categorySummary[summaryKey] = (categorySummary[summaryKey] ?? 0) + value; // add total value to category
+          categorySummary[summaryKey] = (categorySummary[summaryKey] ?? 0) + getNonNegativeValue(value); // add total value to category
           
           Object.entries(chains).forEach(([chain, chainValue]: any) => {
             categorySummary.chainSummary = categorySummary.chainSummary || {};
             categorySummary.chainSummary[chain] = categorySummary.chainSummary[chain] || initSummaryItem(true);
-            categorySummary.chainSummary[chain][summaryKey] = (categorySummary.chainSummary[chain][summaryKey] ?? 0) + chainValue;
+            categorySummary.chainSummary[chain][summaryKey] = (categorySummary.chainSummary[chain][summaryKey] ?? 0) + getNonNegativeValue(chainValue);
           })
         }
       })
@@ -1001,4 +1006,8 @@ function getSurroundingKeysExcludingCurrent<T>(array: T[], currentIndex: number,
   const beforeCurrent = array.slice(startIndex, currentIndex);
   const afterCurrent = array.slice(currentIndex + 1, endIndex + 1);
   return beforeCurrent.concat(afterCurrent);
+}
+
+function getNonNegativeValue(value: number) {
+  return value > 0 ? value : 0
 }

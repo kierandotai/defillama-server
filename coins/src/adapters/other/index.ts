@@ -35,6 +35,7 @@ import gmdV2 from "./gmdV2";
 import { getApi } from "../utils/sdk";
 import getWrites from "../utils/getWrites";
 import cap from "./cap";
+import gohm from "./gohm";
 
 export { glp };
 
@@ -586,5 +587,6 @@ export const adapters = {
   karakWrapped,
   matrixdock,
   dsu, 
-  cap
+  cap,
+  gohm
 };

@@ -52,17 +52,5 @@ async function contractCalls(
 }
 
 const abi = {
-  lvTokenValue: {
-    inputs: [],
-    name: "lvTokenValue",
-    outputs: [
-      {
-        internalType: "uint256",
-        name: "",
-        type: "uint256",
-      },
-    ],
-    stateMutability: "view",
-    type: "function",
-  },
+  lvTokenValue:  'uint256:lvTokenValue',
 };

@@ -96,7 +96,9 @@ export async function fetchAllTokens(chain: Chain): Promise<string[]> {
     sql
   );
 
-  return res.map((r: any) => r.token);
+  return res
+    .map((r: any) => r.token)
+    .filter((t: unknown): t is string => typeof t === "string" && t.length > 0 && t !== "null" && t !== "undefined");
 }
 
 export async function fetchNotTokens(chain: Chain): Promise<string[]> {

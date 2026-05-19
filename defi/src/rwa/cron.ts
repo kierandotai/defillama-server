@@ -19,6 +19,7 @@ import {
 } from './file-cache';
 import { initPG, fetchCurrentPG, fetchMetadataPG, fetchAllDailyRecordsPG, fetchMaxUpdatedAtPG, fetchAllDailyIdsPG, fetchDailyRecordsForIdPG, fetchDailyRecordsWithChainsPG, fetchDailyRecordsWithChainsForIdPG } from './db';
 
+import { shouldEmitRwaBreakdownItem } from './chartBreakdown';
 import { rwaSlug, toFiniteNumberOrZero, smoothHistoricalData, normalizeRwaMetadataForApiInPlace } from './utils';
 import { parentProtocolsById } from '../protocols/parentProtocols';
 import { protocolsById } from '../protocols/data';
@@ -98,6 +99,7 @@ async function generateCurrentData(metadata: RWAMetadata[]): Promise<any[]> {
     m.data.onChainMcap = convertChainKeysToLabelsNumber(idCurrent.mcap as any);
     if (m.data.activeMcapData) m.data.activeMcap = convertChainKeysToLabelsNumber(idCurrent.activemcap as any);
     m.data.defiActiveTvl = convertChainKeysToLabelsNestedNumber(idCurrent.defiactivetvl as any);
+    if (!m.data.canonicalMarketId) return;
 
     data.push(m.data);
   });
@@ -112,12 +114,24 @@ function generateIdMap(
   const idMap: { [name: string]: string } = {};
 
   metadata.forEach((m: RWAMetadata) => {
-    const ticker = m.data.ticker
+    const canonicalMarketId = m.data.canonicalMarketId
     const id = m.id
-    if (ticker && id) idMap[ticker] = id;
+    if (canonicalMarketId && id) idMap[canonicalMarketId] = id;
   });
 
   return idMap;
+}
+
+function trimLeadingZeros(data: Array<{ timestamp: number; onChainMcap: number; defiActiveTvl: number; activeMcap?: number }>): typeof data {
+  while (data.length > 0) {
+    const first = data[0];
+    if (first.onChainMcap === 0 && first.defiActiveTvl === 0 && (!first.activeMcap || first.activeMcap === 0)) {
+      data.shift();
+    } else {
+      break;
+    }
+  }
+  return data;
 }
 
 async function generateAllHistoricalDataIncremental(metadata: RWAMetadata[]): Promise<{ updatedIds: number; totalRecords: number }> {
@@ -176,7 +190,7 @@ async function generateAllHistoricalDataIncremental(metadata: RWAMetadata[]): Pr
         const newRecords = recordsById[id];
         const existingData = await readHistoricalDataForId(id);
         const mergedData = mergeHistoricalData(existingData, newRecords);
-        await storeHistoricalDataForId(id, smoothHistoricalData(mergedData));
+        await storeHistoricalDataForId(id, trimLeadingZeros(smoothHistoricalData(mergedData)));
         updatedIds++;
         totalRecords += newRecords.length;
       } catch (e) {
@@ -205,7 +219,7 @@ async function generateAllHistoricalDataIncremental(metadata: RWAMetadata[]): Pr
           activeMcap: activeMcapData ? toFiniteNumberOrZero(record.aggregatedactivemcap) : undefined,
         }));
 
-        await storeHistoricalDataForId(id, smoothHistoricalData(historicalData));
+        await storeHistoricalDataForId(id, trimLeadingZeros(smoothHistoricalData(historicalData)));
         updatedIds++;
         totalRecords += records.length;
 
@@ -232,7 +246,7 @@ async function generateAllHistoricalDataIncremental(metadata: RWAMetadata[]): Pr
 
 function sumObjectValues(obj: any): number {
   if (!obj || typeof obj !== 'object') return 0;
-  return Object.values(obj).reduce((sum: number, val) => {
+  return Object.values(obj as Record<string, any>).reduce((sum: number, val: any) => {
     const num = Number(val);
     return sum + (isNaN(num) ? 0 : num);
   }, 0);
@@ -677,12 +691,9 @@ function generateAggregateStats(currentData: any[]): AggregateStats {
     if (!item || typeof item !== "object") continue;
 
     const assetType = typeof item.type === "string" ? item.type.trim() : "";
-    if (assetType.toLowerCase() === "wrapper") continue;
-
-    assetCount += 1;
+    const isWrapper = assetType.toLowerCase() === "wrapper";
 
     const issuer: string | null = typeof item.issuer === "string" && item.issuer.trim() ? item.issuer.trim() : null;
-    if (issuer) allIssuers.add(issuer);
 
     const stablecoin = item.stablecoin === true;
     const governance = item.governance === true;
@@ -698,53 +709,59 @@ function generateAggregateStats(currentData: any[]): AggregateStats {
       0
     );
 
-    totalOnChainMcap += assetOnChainTotal;
-    totalActiveMcap += assetActiveTotal;
-    totalDefiActiveTvl += assetDefiActiveTotal;
-
     const assetDelta = { onChainMcap: assetOnChainTotal, activeMcap: assetActiveTotal, defiActiveTvl: assetDefiActiveTotal };
 
-    // Category aggregation: assets with multiple categories have their FULL values
-    // added to each category (not split). Category totals will exceed global totals.
-    const categories: string[] = Array.isArray(item.category) ? item.category : [];
-    for (const cat of categories) {
-      if (!cat) continue;
-      if (!byCategory[cat]) byCategory[cat] = makeBucketGroup();
-      addToBucketGroup(byCategory[cat], assetDelta, issuer, stablecoin, governance);
+    // Wrappers are excluded from global totals and non-platform aggregations to avoid double-counting,
+    // but included in platform aggregation so platforms show their full value including wrappers.
+    if (!isWrapper) {
+      assetCount += 1;
+      if (issuer) allIssuers.add(issuer);
+
+      totalOnChainMcap += assetOnChainTotal;
+      totalActiveMcap += assetActiveTotal;
+      totalDefiActiveTvl += assetDefiActiveTotal;
+
+      // Category aggregation uses only the primary category to avoid double-counting.
+      const categories: string[] = Array.isArray(item.category) ? item.category.filter(Boolean) : [];
+      const primaryCategory = categories[0];
+      if (primaryCategory) {
+        if (!byCategory[primaryCategory]) byCategory[primaryCategory] = makeBucketGroup();
+        addToBucketGroup(byCategory[primaryCategory], assetDelta, issuer, stablecoin, governance);
+      }
+
+      // AssetGroup aggregation
+      const assetGroup =
+        typeof item.assetGroup === "string" && item.assetGroup.trim() ? item.assetGroup.trim() : null;
+      if (assetGroup) {
+        if (!byAssetGroup[assetGroup]) byAssetGroup[assetGroup] = makeBucketGroup();
+        addToBucketGroup(byAssetGroup[assetGroup], assetDelta, issuer, stablecoin, governance);
+      }
+
+      // Chain aggregation (per-chain values, not asset totals)
+      const chains = new Set<string>([
+        ...Object.keys(onChainMcapByChain || {}),
+        ...Object.keys(activeMcapByChain || {}),
+        ...Object.keys(defiActiveTvlByChain || {}),
+      ]);
+
+      for (const chain of chains) {
+        if (!chain) continue;
+        if (!byChain[chain]) byChain[chain] = makeBucketGroup();
+        const chainDelta = {
+          onChainMcap: toFiniteNumberOrZero(onChainMcapByChain?.[chain]),
+          activeMcap: toFiniteNumberOrZero(activeMcapByChain?.[chain]),
+          defiActiveTvl: sumProtocolMap(defiActiveTvlByChain?.[chain]),
+        };
+        addToBucketGroup(byChain[chain], chainDelta, issuer, stablecoin, governance);
+      }
     }
 
-    // Platform aggregation (ONLY when asset has a valid parentPlatform; never synthesize "Unknown")
+    // Platform aggregation includes wrappers (ONLY when asset has a valid parentPlatform; never synthesize "Unknown")
     const platform =
       typeof item.parentPlatform === "string" && item.parentPlatform.trim() ? item.parentPlatform.trim() : null;
     if (platform && platform !== "Unknown") {
       if (!byPlatform[platform]) byPlatform[platform] = makeBucketGroup();
       addToBucketGroup(byPlatform[platform], assetDelta, issuer, stablecoin, governance);
-    }
-
-    // AssetGroup aggregation
-    const assetGroup =
-      typeof item.assetGroup === "string" && item.assetGroup.trim() ? item.assetGroup.trim() : null;
-    if (assetGroup) {
-      if (!byAssetGroup[assetGroup]) byAssetGroup[assetGroup] = makeBucketGroup();
-      addToBucketGroup(byAssetGroup[assetGroup], assetDelta, issuer, stablecoin, governance);
-    }
-
-    // Chain aggregation (per-chain values, not asset totals)
-    const chains = new Set<string>([
-      ...Object.keys(onChainMcapByChain || {}),
-      ...Object.keys(activeMcapByChain || {}),
-      ...Object.keys(defiActiveTvlByChain || {}),
-    ]);
-
-    for (const chain of chains) {
-      if (!chain) continue;
-      if (!byChain[chain]) byChain[chain] = makeBucketGroup();
-      const chainDelta = {
-        onChainMcap: toFiniteNumberOrZero(onChainMcapByChain?.[chain]),
-        activeMcap: toFiniteNumberOrZero(activeMcapByChain?.[chain]),
-        defiActiveTvl: sumProtocolMap(defiActiveTvlByChain?.[chain]),
-      };
-      addToBucketGroup(byChain[chain], chainDelta, issuer, stablecoin, governance);
     }
   }
 
@@ -792,7 +809,7 @@ function generateAggregateStats(currentData: any[]): AggregateStats {
 
 
 function generateList(currentData: any[], stats: AggregateStats): {
-  tickers: string[];
+  canonicalMarketIds: string[];
   platforms: string[];
   chains: string[];
   categories: string[];
@@ -802,8 +819,8 @@ function generateList(currentData: any[], stats: AggregateStats): {
   console.log('Generating list data...');
   const startTime = Date.now();
 
-  const tickerMcap: { [ticker: string]: number } = {};
-  const idMap: { [ticker: string]: string } = {};
+  const canonicalMarketIdMcap: { [canonicalMarketId: string]: number } = {};
+  const idMap: { [canonicalMarketId: string]: string } = {};
 
   for (const item of currentData) {
     const assetType = typeof item.type === "string" ? item.type.trim() : "";
@@ -825,15 +842,15 @@ function generateList(currentData: any[], stats: AggregateStats): {
       }
     }
 
-    if (item.ticker) {
-      tickerMcap[item.ticker] = (tickerMcap[item.ticker] || 0) + assetMcap;
-      idMap[item.ticker] = item.id;
+    if (item.canonicalMarketId) {
+      canonicalMarketIdMcap[item.canonicalMarketId] = (canonicalMarketIdMcap[item.canonicalMarketId] || 0) + assetMcap;
+      idMap[item.canonicalMarketId] = item.id;
     }
   }
 
-  const tickerPairs: [string, number][] = [];
-  for (const k in tickerMcap) tickerPairs.push([k, tickerMcap[k]]);
-  const tickersSorted = tickerPairs.sort((a, b) => b[1] - a[1]).map(([k]) => k);
+  const canonicalMarketIdPairs: [string, number][] = [];
+  for (const k in canonicalMarketIdMcap) canonicalMarketIdPairs.push([k, canonicalMarketIdMcap[k]]);
+  const canonicalMarketIdsSorted = canonicalMarketIdPairs.sort((a, b) => b[1] - a[1]).map(([k]) => k);
 
   // Chains: sorted by base onChainMcap only (excludes stablecoins & governance tokens)
   const chainPairs: [string, number][] = [];
@@ -854,7 +871,7 @@ function generateList(currentData: any[], stats: AggregateStats): {
   const assetGroupsSorted = assetGroupPairs.sort((a, b) => b[1] - a[1]).map(([k]) => k);
 
   const list = {
-    tickers: tickersSorted,
+    canonicalMarketIds: canonicalMarketIdsSorted,
     platforms: platformsSorted,
     chains: chainsSorted,
     categories: categoriesSorted,
@@ -914,6 +931,10 @@ async function generateAggregatedHistoricalCharts(metadata: RWAMetadata[]): Prom
   const platformBreakdownAndAssetTypes: { [timestamp: number]: HistoricalDataPointAssetTypes } = {};
   // timestamp => assetType => key => assetGroup
   const assetGroupBreakdownAndAssetTypes: { [timestamp: number]: HistoricalDataPointAssetTypes } = {};
+  const chainBreakdownStartedItems = new Set<string>();
+  const categoryBreakdownStartedItems = new Set<string>();
+  const platformBreakdownStartedItems = new Set<string>();
+  const assetGroupBreakdownStartedItems = new Set<string>();
 
   function ensureDataPoint(
     map: { [key: string]: { [timestamp: number]: HistoricalDataPoint } },
@@ -925,16 +946,21 @@ async function generateAggregatedHistoricalCharts(metadata: RWAMetadata[]): Prom
     return map[key][timestamp];
   }
 
-  function ensureBreakdownDataPoint(map: { [category: string]: HistoricalBreakdownDataPoint }, key: string, timestamp: number, ticker: string): HistoricalBreakdownDataPoint {
+  function ensureBreakdownDataPoint(
+    map: { [category: string]: HistoricalBreakdownDataPoint },
+    key: string,
+    timestamp: number,
+    assetKey: string
+  ): HistoricalBreakdownDataPoint {
     if (!map[key]) map[key] = { onChainMcap: {}, activeMcap: {}, defiActiveTvl: {} };
     
     map[key].onChainMcap[timestamp] = map[key].onChainMcap[timestamp] || {};
     map[key].activeMcap[timestamp] = map[key].activeMcap[timestamp] || {};
     map[key].defiActiveTvl[timestamp] = map[key].defiActiveTvl[timestamp] || {};
     
-    map[key].onChainMcap[timestamp][ticker] = map[key].onChainMcap[timestamp][ticker] || 0;
-    map[key].activeMcap[timestamp][ticker] = map[key].activeMcap[timestamp][ticker] || 0;
-    map[key].defiActiveTvl[timestamp][ticker] = map[key].defiActiveTvl[timestamp][ticker] || 0;
+    map[key].onChainMcap[timestamp][assetKey] = map[key].onChainMcap[timestamp][assetKey] || 0;
+    map[key].activeMcap[timestamp][assetKey] = map[key].activeMcap[timestamp][assetKey] || 0;
+    map[key].defiActiveTvl[timestamp][assetKey] = map[key].defiActiveTvl[timestamp][assetKey] || 0;
     
     return map[key];
   }
@@ -950,8 +976,9 @@ async function generateAggregatedHistoricalCharts(metadata: RWAMetadata[]): Prom
     (map[timestamp] as any)[assetType][key][chain] += value;
   }
   
-  function updateBreakdownAndAssetTypes(map: { [timestamp: number]: HistoricalDataPointAssetTypes }, m: any, timestamp: number, data: any) {
+  function updateBreakdownAndAssetTypes(map: { [timestamp: number]: HistoricalDataPointAssetTypes }, m: any, timestamp: number, data: any, startedItems: Set<string>) {
     function _addToBreakdownItem(map: { [timestamp: number]: HistoricalDataPointAssetTypes }, timestamp: number, assetType: string, itemKey: string, itemValues: any) {
+      if (!shouldEmitRwaBreakdownItem(startedItems, `${assetType}:${itemKey}`, itemValues as any)) return;
       _updateBreakdownAndAssetTypes(map, timestamp, assetType, "onChainMcap", itemKey, toFiniteNumberOrZero((itemValues as any)?.onChainMcap));
       _updateBreakdownAndAssetTypes(map, timestamp, assetType, "activeMcap", itemKey, toFiniteNumberOrZero((itemValues as any)?.activeMcap));
       _updateBreakdownAndAssetTypes(map, timestamp, assetType, "defiActiveTvl", itemKey, toFiniteNumberOrZero((itemValues as any)?.defiActiveTvl));
@@ -984,10 +1011,14 @@ async function generateAggregatedHistoricalCharts(metadata: RWAMetadata[]): Prom
   // Process each asset's pg-cache for chain breakdown
   let processedCount = 0;
   for (const m of metadata) {
+    const canonicalMarketId = m.data.canonicalMarketId;
+    if (!canonicalMarketId) continue;
+
     const pgCache = await readPGCacheForId(m.id);
     if (!pgCache) continue;
 
-    const categories = m.data.category || [];
+    const categories = Array.isArray(m.data.category) ? m.data.category.filter(Boolean) : [];
+    const primaryCategory = categories[0];
     const platform = m.data.parentPlatform;
     const assetGroup = typeof m.data.assetGroup === "string" && m.data.assetGroup.trim() ? m.data.assetGroup.trim() : null;
 
@@ -1001,7 +1032,6 @@ async function generateAggregatedHistoricalCharts(metadata: RWAMetadata[]): Prom
         defiActiveTvl: rawTotalTvl,
         chains,
       } = record as any;
-      const ticker = m.data.ticker;
 
       const totalOnChainMcap = toFiniteNumberOrZero(rawTotalOnChainMcap);
       const totalActiveMcap = toFiniteNumberOrZero(rawTotalActiveMcap);
@@ -1014,10 +1044,10 @@ async function generateAggregatedHistoricalCharts(metadata: RWAMetadata[]): Prom
         chainDp.activeMcap += toFiniteNumberOrZero((chainData as any)?.activeMcap);
         chainDp.defiActiveTvl += toFiniteNumberOrZero((chainData as any)?.defiActiveTvl);
         
-        const dpa = ensureBreakdownDataPoint(byChainTickerBreakdown, chainKey, timestamp, ticker);
-        dpa.onChainMcap[timestamp][ticker] += toFiniteNumberOrZero((chainData as any)?.onChainMcap);
-        dpa.activeMcap[timestamp][ticker] += toFiniteNumberOrZero((chainData as any)?.activeMcap);
-        dpa.defiActiveTvl[timestamp][ticker] += toFiniteNumberOrZero((chainData as any)?.defiActiveTvl);
+        const dpa = ensureBreakdownDataPoint(byChainTickerBreakdown, chainKey, timestamp, canonicalMarketId);
+        dpa.onChainMcap[timestamp][canonicalMarketId] += toFiniteNumberOrZero((chainData as any)?.onChainMcap);
+        dpa.activeMcap[timestamp][canonicalMarketId] += toFiniteNumberOrZero((chainData as any)?.activeMcap);
+        dpa.defiActiveTvl[timestamp][canonicalMarketId] += toFiniteNumberOrZero((chainData as any)?.defiActiveTvl);
       }
 
       // Aggregate to "All"
@@ -1026,29 +1056,29 @@ async function generateAggregatedHistoricalCharts(metadata: RWAMetadata[]): Prom
       allDp.activeMcap += totalActiveMcap;
       allDp.defiActiveTvl += totalTvl;
       
-      const allDpa = ensureBreakdownDataPoint(byChainTickerBreakdown, 'all', timestamp, ticker);
-      allDpa.onChainMcap[timestamp][ticker] += totalOnChainMcap;
-      allDpa.activeMcap[timestamp][ticker] += totalActiveMcap;
-      allDpa.defiActiveTvl[timestamp][ticker] += totalTvl;
+      const allDpa = ensureBreakdownDataPoint(byChainTickerBreakdown, 'all', timestamp, canonicalMarketId);
+      allDpa.onChainMcap[timestamp][canonicalMarketId] += totalOnChainMcap;
+      allDpa.activeMcap[timestamp][canonicalMarketId] += totalActiveMcap;
+      allDpa.defiActiveTvl[timestamp][canonicalMarketId] += totalTvl;
 
-      // Aggregate by category: full asset values are added to every category the
-      // asset belongs to (not split), so category totals will exceed global totals.
+      // Aggregate by category using only the primary category to avoid double-counting.
       const categoryItems: Record<string, any> = {};
-      for (const cat of categories) {
-        const dp = ensureDataPoint(byCategory, cat, timestamp);
+      if (primaryCategory) {
+        const dp = ensureDataPoint(byCategory, primaryCategory, timestamp);
         dp.onChainMcap += totalOnChainMcap;
         dp.activeMcap += totalActiveMcap;
         dp.defiActiveTvl += totalTvl;
-        
-        const dpa = ensureBreakdownDataPoint(byCategoryTickerBreakdown, cat, timestamp, ticker);
-        dpa.onChainMcap[timestamp][ticker] += totalOnChainMcap;
-        dpa.activeMcap[timestamp][ticker] += totalActiveMcap;
-        dpa.defiActiveTvl[timestamp][ticker] += totalTvl;
-        
-        categoryItems[cat] = { onChainMcap: 0, activeMcap: 0, defiActiveTvl: 0 };
-        categoryItems[cat].onChainMcap += totalOnChainMcap;
-        categoryItems[cat].activeMcap += totalActiveMcap;
-        categoryItems[cat].defiActiveTvl += totalTvl;
+
+        const dpa = ensureBreakdownDataPoint(byCategoryTickerBreakdown, primaryCategory, timestamp, canonicalMarketId);
+        dpa.onChainMcap[timestamp][canonicalMarketId] += totalOnChainMcap;
+        dpa.activeMcap[timestamp][canonicalMarketId] += totalActiveMcap;
+        dpa.defiActiveTvl[timestamp][canonicalMarketId] += totalTvl;
+
+        categoryItems[primaryCategory] = {
+          onChainMcap: totalOnChainMcap,
+          activeMcap: totalActiveMcap,
+          defiActiveTvl: totalTvl,
+        };
       }
 
       // Aggregate by platform
@@ -1059,10 +1089,10 @@ async function generateAggregatedHistoricalCharts(metadata: RWAMetadata[]): Prom
         dp.activeMcap += totalActiveMcap;
         dp.defiActiveTvl += totalTvl;
         
-        const dpa = ensureBreakdownDataPoint(byPlatformTickerBreakdown, platform, timestamp, ticker);
-        dpa.onChainMcap[timestamp][ticker] += totalOnChainMcap;
-        dpa.activeMcap[timestamp][ticker] += totalActiveMcap;
-        dpa.defiActiveTvl[timestamp][ticker] += totalTvl;
+        const dpa = ensureBreakdownDataPoint(byPlatformTickerBreakdown, platform, timestamp, canonicalMarketId);
+        dpa.onChainMcap[timestamp][canonicalMarketId] += totalOnChainMcap;
+        dpa.activeMcap[timestamp][canonicalMarketId] += totalActiveMcap;
+        dpa.defiActiveTvl[timestamp][canonicalMarketId] += totalTvl;
         
         platformItems[platform] = { onChainMcap: 0, activeMcap: 0, defiActiveTvl: 0 };
         platformItems[platform].onChainMcap += totalOnChainMcap;
@@ -1078,10 +1108,10 @@ async function generateAggregatedHistoricalCharts(metadata: RWAMetadata[]): Prom
         dp.activeMcap += totalActiveMcap;
         dp.defiActiveTvl += totalTvl;
 
-        const dpa = ensureBreakdownDataPoint(byAssetGroupTickerBreakdown, assetGroup, timestamp, ticker);
-        dpa.onChainMcap[timestamp][ticker] += totalOnChainMcap;
-        dpa.activeMcap[timestamp][ticker] += totalActiveMcap;
-        dpa.defiActiveTvl[timestamp][ticker] += totalTvl;
+        const dpa = ensureBreakdownDataPoint(byAssetGroupTickerBreakdown, assetGroup, timestamp, canonicalMarketId);
+        dpa.onChainMcap[timestamp][canonicalMarketId] += totalOnChainMcap;
+        dpa.activeMcap[timestamp][canonicalMarketId] += totalActiveMcap;
+        dpa.defiActiveTvl[timestamp][canonicalMarketId] += totalTvl;
 
         assetGroupItems[assetGroup] = { onChainMcap: 0, activeMcap: 0, defiActiveTvl: 0 };
         assetGroupItems[assetGroup].onChainMcap += totalOnChainMcap;
@@ -1090,10 +1120,10 @@ async function generateAggregatedHistoricalCharts(metadata: RWAMetadata[]): Prom
       }
 
       // update chart breakdown
-      updateBreakdownAndAssetTypes(chainBreakdownAndAssetTypes, m, timestamp, chains);
-      updateBreakdownAndAssetTypes(categoryBreakdownAndAssetTypes, m, timestamp, categoryItems);
-      updateBreakdownAndAssetTypes(platformBreakdownAndAssetTypes, m, timestamp, platformItems);
-      updateBreakdownAndAssetTypes(assetGroupBreakdownAndAssetTypes, m, timestamp, assetGroupItems);
+      updateBreakdownAndAssetTypes(chainBreakdownAndAssetTypes, m, timestamp, chains, chainBreakdownStartedItems);
+      updateBreakdownAndAssetTypes(categoryBreakdownAndAssetTypes, m, timestamp, categoryItems, categoryBreakdownStartedItems);
+      updateBreakdownAndAssetTypes(platformBreakdownAndAssetTypes, m, timestamp, platformItems, platformBreakdownStartedItems);
+      updateBreakdownAndAssetTypes(assetGroupBreakdownAndAssetTypes, m, timestamp, assetGroupItems, assetGroupBreakdownStartedItems);
     }
     processedCount++;
   }
@@ -1146,11 +1176,11 @@ async function generateAggregatedHistoricalCharts(metadata: RWAMetadata[]): Prom
     await storeRouteData(`charts/chain/${key}.json`, toSortedArray(timestampMap));
   }
   
-  // Store chain charts - breakdown by tickers
+  // Store chain charts - breakdown by asset key
   for (const [chain, dataMap] of Object.entries(byChainTickerBreakdown)) {
     const chainLabel = getChainLabelFromKey(chain);
     const key = rwaSlug(chainLabel);
-    await storeRouteData(`charts/chain-ticker-breakdown/${key}.json`, {
+    await storeRouteData(`charts/chain-asset-breakdown/${key}.json`, {
       onChainMcap: toSortedArrayBreakdown(dataMap.onChainMcap),
       activeMcap: toSortedArrayBreakdown(dataMap.activeMcap),
       defiActiveTvl: toSortedArrayBreakdown(dataMap.defiActiveTvl),
@@ -1169,10 +1199,10 @@ async function generateAggregatedHistoricalCharts(metadata: RWAMetadata[]): Prom
     await storeRouteData(`charts/category/${key}.json`, toSortedArray(timestampMap));
   }
   
-  // Store category charts - breakdown by tickers
+  // Store category charts - breakdown by asset key
   for (const [category, dataMap] of Object.entries(byCategoryTickerBreakdown)) {
     const key = rwaSlug(category);
-    await storeRouteData(`charts/category-ticker-breakdown/${key}.json`, {
+    await storeRouteData(`charts/category-asset-breakdown/${key}.json`, {
       onChainMcap: toSortedArrayBreakdown(dataMap.onChainMcap),
       activeMcap: toSortedArrayBreakdown(dataMap.activeMcap),
       defiActiveTvl: toSortedArrayBreakdown(dataMap.defiActiveTvl),
@@ -1191,10 +1221,10 @@ async function generateAggregatedHistoricalCharts(metadata: RWAMetadata[]): Prom
     await storeRouteData(`charts/platform/${key}.json`, toSortedArray(timestampMap));
   }
   
-  // Store platform charts - breakdown by tickers
+  // Store platform charts - breakdown by asset key
   for (const [platform, dataMap] of Object.entries(byPlatformTickerBreakdown)) {
     const key = rwaSlug(platform);
-    await storeRouteData(`charts/platform-ticker-breakdown/${key}.json`, {
+    await storeRouteData(`charts/platform-asset-breakdown/${key}.json`, {
       onChainMcap: toSortedArrayBreakdown(dataMap.onChainMcap),
       activeMcap: toSortedArrayBreakdown(dataMap.activeMcap),
       defiActiveTvl: toSortedArrayBreakdown(dataMap.defiActiveTvl),
@@ -1213,10 +1243,10 @@ async function generateAggregatedHistoricalCharts(metadata: RWAMetadata[]): Prom
     await storeRouteData(`charts/assetGroup/${key}.json`, toSortedArray(timestampMap));
   }
 
-  // Store assetGroup charts - breakdown by tickers
+  // Store assetGroup charts - breakdown by asset key
   for (const [ag, dataMap] of Object.entries(byAssetGroupTickerBreakdown)) {
     const key = rwaSlug(ag);
-    await storeRouteData(`charts/assetGroup-ticker-breakdown/${key}.json`, {
+    await storeRouteData(`charts/assetGroup-asset-breakdown/${key}.json`, {
       onChainMcap: toSortedArrayBreakdown(dataMap.onChainMcap),
       activeMcap: toSortedArrayBreakdown(dataMap.activeMcap),
       defiActiveTvl: toSortedArrayBreakdown(dataMap.defiActiveTvl),
@@ -1274,9 +1304,11 @@ async function main() {
     // Raw DB metadata can contain newlines/extra spaces (e.g. "Stablecoins\n  backed by RWAs")
     // which would create separate aggregation keys that slugify identically, causing
     // one set of chart data to silently overwrite the other when saved to disk.
-    const metadata = await fetchMetadataPG();
-    metadata.forEach((m: any) => { if (m.data) normalizeRwaMetadataForApiInPlace(m.data); });
-    console.log(`Fetched metadata for ${metadata.length} RWA assets`);
+    const allMetadata = await fetchMetadataPG();
+    allMetadata.forEach((m: any) => { if (m.data) normalizeRwaMetadataForApiInPlace(m.data); });
+    const metadata = allMetadata.filter((m: any) => m.data?.delisted !== true);
+    const delistedCount = allMetadata.length - metadata.length;
+    console.log(`Fetched metadata for ${metadata.length} RWA assets (excluded ${delistedCount} delisted)`);
 
     // Generate current data
     const currentData = await generateCurrentData(metadata);

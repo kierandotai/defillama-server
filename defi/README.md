@@ -12,6 +12,29 @@ npm test # Run tests
 npm run format # Format code
 ```
 
+### Search regression tests
+
+Run the Meilisearch ranking regression suite:
+
+```bash
+export APP_ENV=/Users/mint/p/defillama-server/defi/.env
+npm run test:search
+```
+
+The test suite always uses production search documents as the data source, so the env file must include `SEARCH_MASTER_KEY`.
+
+To run against the prod Meilisearch host with a temporary test index:
+
+```bash
+set -a
+source .env
+set +a
+SEARCH_TEST_MEILI_HOST=https://search-core.defillama.com \
+SEARCH_TEST_MEILI_KEY="$SEARCH_MASTER_KEY" \
+SEARCH_TEST_MEILI_VERSION=1.9.0 \
+npm run test:search
+```
+
 ### Local dev server
 
 ```bash

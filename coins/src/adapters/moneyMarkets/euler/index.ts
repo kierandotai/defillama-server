@@ -1,9 +1,4 @@
-import getTokenPrices from "./euler";
 import getEulerV2TokenPrices from "./eulerV2";
-
-function euler(timestamp: number = 0) {
-  return getTokenPrices("ethereum", timestamp);
-}
 
 const v2ChainConfigs = {
   ethereum: {
@@ -36,12 +31,12 @@ const v2ChainConfigs = {
     fromBlock: 786314,
     vaultCount: 0,
   },
-  bsc: {
-    factory: "0x7F53E2755eB3c43824E162F7F6F087832B9C9Df6",
-    vaultLens: "0xBfD019C90e8Ca8286f9919DF31c25BF989C6bD46",
-    fromBlock: 46370655,
-    vaultCount: 58,
-  },
+  // bsc: {
+  //   factory: "0x7F53E2755eB3c43824E162F7F6F087832B9C9Df6",
+  //   vaultLens: "0xBfD019C90e8Ca8286f9919DF31c25BF989C6bD46",
+  //   fromBlock: 46370655,
+  //   vaultCount: 58,
+  // },
   base: {
     factory: "0x7F321498A801A191a93C840750ed637149dDf8D0",
     vaultLens: "0xCCC8D18e40c439F5234042FbEA0f4f1528f52f00",
@@ -54,12 +49,12 @@ const v2ChainConfigs = {
   //   fromBlock: 2350701,
   //   vaultCount: 0,
   // },
-  unichain: {
-    factory: "0xbAd8b5BDFB2bcbcd78Cc9f1573D3Aad6E865e752",
-    vaultLens: "0x03833b4A873eA1F657340C72971a2d0EbB2B4D82",
-    fromBlock: 8541544,
-    vaultCount: 37,
-  },
+  // unichain: {
+  //   factory: "0xbAd8b5BDFB2bcbcd78Cc9f1573D3Aad6E865e752",
+  //   vaultLens: "0x03833b4A873eA1F657340C72971a2d0EbB2B4D82",
+  //   fromBlock: 8541544,
+  //   vaultCount: 37,
+  // },
 };
 
 function eulerV2(timestamp: number = 0) {
@@ -70,12 +65,13 @@ function eulerV2(timestamp: number = 0) {
         timestamp,
         config.factory,
         config.fromBlock,
+      ).catch(() =>
+        console.log(`Error fetching eulerV2 token prices for ${chain}`),
       ),
     ),
   );
 }
 
 export const adapters = {
-  // euler,
   eulerV2,
 };

@@ -1,13 +1,13 @@
 # RWA Perps
 
-Real-World Assets perpetual futures data aggregation and API service. Collects market data (open interest, volume, funding rates, fees) from Hyperliquid venues, stores historical snapshots in PostgreSQL, and serves them via a cached REST API.
+Real-World Assets perpetual futures data aggregation and API service. Collects market data (open interest, volume, funding rates, fees) from supported venues, stores historical snapshots in PostgreSQL, and serves them via a cached REST API.
 
 ## Architecture
 
 ```
 Airtable (market metadata)
         v
-Hyperliquid API ──> Parse & Validate ──> PostgreSQL
+Venue APIs ───────> Parse & Validate ──> PostgreSQL
                                            |
                                       Cache (JSON)
                                            |
@@ -17,7 +17,7 @@ Hyperliquid API ──> Parse & Validate ──> PostgreSQL
 ### Data pipeline (`cron.ts` / `perps.ts`)
 
 1. Load market metadata from Airtable (canonical contracts, categories, fees, asset class).
-2. Fetch venue markets and funding history from Hyperliquid.
+2. Fetch venue markets and available funding history from platform adapters.
 3. Calculate derived metrics: cumulative funding, rolling volumes (7d/30d/all-time), protocol fees.
 4. Run circuit-breaker check (rejects >50% OI change).
 5. Store snapshots to hourly, daily, and backup DB tables.
@@ -35,7 +35,9 @@ Hyperliquid API ──> Parse & Validate ──> PostgreSQL
 
 ### Platforms
 
-Currently supports **Hyperliquid** (`platforms/hyperliquid.ts`). New platforms can be added as files in `platforms/`.
+Currently supports the adapters listed in `platforms/index.ts`. New platforms can be added as files in `platforms/adapters/`.
+
+The Apex adapter uses Apex Omni's public `symbols` and `all-open-tickers` endpoints for market config, fees, OI, volume, and funding, plus the same public `data/all-ticker-mixture` feed used by Apex's trade UI for mark price and 24h change.
 
 ## API endpoints
 

@@ -7,10 +7,6 @@ import { getCurrentUnixTimestamp } from "../../../utils/date";
 import { getApi } from "../../utils/sdk";
 import axios from "axios";
 
-const sdk = require("@defillama/sdk");
-const rswethAbi = require("./rsweth.abi.json");
-const symmetricAbi = require("./symmetric.abi.json");
-
 interface Market {
     vaultAddress: string;
     vaultDecimals: string;
@@ -67,55 +63,39 @@ async function getTempestTokens(
         rswethSupplies,
         symmetricSupplies,
     ] = await Promise.all([
-        sdk.api.abi.multiCall({
-            calls: rswEthVaults.map((vault: Market) => ({
-                target: vault.vaultAddress,
-                params: [],
-            })),
-            abi: rswethAbi.find((m: any) => m.name === "getPositions"),
-            chain,
+        api.multiCall({
+            calls: rswEthVaults.map((vault: Market) => vault.vaultAddress),
+            abi: "function getPositions() view returns (uint256 amount0Invested, uint256 amount1Invested, uint256 amount0Idle, uint256 amount1Idle, uint256 amountInQueue, uint256 amountUnwrappedToken)",
             permitFailure: true,
         }),
-        sdk.api.abi.multiCall({
-            calls: symmetricVaults.map((vault: Market) => ({
-                target: vault.vaultAddress,
-                params: [],
-            })),
-            abi: symmetricAbi.find((m: any) => m.name === "getPositions"),
-            chain,
+        api.multiCall({
+            calls: symmetricVaults.map((vault: Market) => vault.vaultAddress),
+            abi: "function getPositions() view returns (uint256 amount0Invested, uint256 amount1Invested, uint256 amount0Idle, uint256 amount1Idle)",
             permitFailure: true,
         }),
-
-        sdk.api.abi.multiCall({
-            calls: rswEthVaults.map((vault: Market) => ({
-                target: vault.vaultAddress,
-                params: [],
-            })),
-            abi: rswethAbi.find((m: any) => m.name === "totalSupply"),
-            chain,
+        api.multiCall({
+            calls: rswEthVaults.map((vault: Market) => vault.vaultAddress),
+            abi: "uint256:totalSupply",
             permitFailure: true,
         }),
-        sdk.api.abi.multiCall({
-            calls: symmetricVaults.map((vault: Market) => ({
-                target: vault.vaultAddress,
-                params: [],
-            })),
-            abi: symmetricAbi.find((m: any) => m.name === "totalSupply"),
-            chain,
+        api.multiCall({
+            calls: symmetricVaults.map((vault: Market) => vault.vaultAddress),
+            abi: "uint256:totalSupply",
             permitFailure: true,
         }),
     ]);
 
-    const rswethMarketData = rswethPositions.output.map(
-        (position: any, i: number) => {
+    const rswethMarketData = rswethPositions
+        .map((position: any, i: number) => {
+            if (!position || rswethSupplies[i] == null) return null;
             const token0Sum =
-                BigInt(position.output[0]) + // amount0Invested
-                BigInt(position.output[2]) + // amount0Idle
-                BigInt(position.output[4]) + // amountInQueue
-                BigInt(position.output[5]); // amountUnwrappedToken
+                BigInt(position[0]) + // amount0Invested
+                BigInt(position[2]) + // amount0Idle
+                BigInt(position[4]) + // amountInQueue
+                BigInt(position[5]); // amountUnwrappedToken
             const token1Sum =
-                BigInt(position.output[1]) + // amount1Invested
-                BigInt(position.output[3]); // amount1Idle
+                BigInt(position[1]) + // amount1Invested
+                BigInt(position[3]); // amount1Idle
 
             const token0Divisor =
                 BigInt(10) ** BigInt(rswEthVaults[i].token0Decimals);
@@ -127,7 +107,7 @@ async function getTempestTokens(
             const token0Amount = Number(token0Sum) / Number(token0Divisor);
             const token1Amount = Number(token1Sum) / Number(token1Divisor);
             const totalSupply =
-                Number(rswethSupplies.output[i].output) / Number(supplyDivisor);
+                Number(rswethSupplies[i]) / Number(supplyDivisor);
 
             return {
                 vaultAddress: rswEthVaults[i].vaultAddress,
@@ -142,17 +122,18 @@ async function getTempestTokens(
                 token0Amount: token0Amount,
                 token1Amount: token1Amount,
             };
-        }
-    );
+        })
+        .filter((m: Market | null): m is Market => m !== null);
 
-    const symmetricMarketData = symmetricPositions.output.map(
-        (position: any, i: number) => {
+    const symmetricMarketData = symmetricPositions
+        .map((position: any, i: number) => {
+            if (!position || symmetricSupplies[i] == null) return null;
             const token0Sum =
-                BigInt(position.output[0]) + // amount0Invested
-                BigInt(position.output[2]); // amount0Idle
+                BigInt(position[0]) + // amount0Invested
+                BigInt(position[2]); // amount0Idle
             const token1Sum =
-                BigInt(position.output[1]) + // amount1Invested
-                BigInt(position.output[3]); // amount1Idle
+                BigInt(position[1]) + // amount1Invested
+                BigInt(position[3]); // amount1Idle
 
             const token0Divisor =
                 BigInt(10) ** BigInt(symmetricVaults[i].token0Decimals);
@@ -164,7 +145,7 @@ async function getTempestTokens(
             const token0Amount = Number(token0Sum) / Number(token0Divisor);
             const token1Amount = Number(token1Sum) / Number(token1Divisor);
             const totalSupply =
-                Number(symmetricSupplies.output[i].output) / Number(supplyDivisor);
+                Number(symmetricSupplies[i]) / Number(supplyDivisor);
 
             return {
                 vaultAddress: symmetricVaults[i].vaultAddress,
@@ -179,8 +160,8 @@ async function getTempestTokens(
                 token0Amount: token0Amount,
                 token1Amount: token1Amount,
             };
-        }
-    );
+        })
+        .filter((m: Market | null): m is Market => m !== null);
     const marketData = [...rswethMarketData, ...symmetricMarketData];
     return marketData;
 }
