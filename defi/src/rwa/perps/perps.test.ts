@@ -20,6 +20,7 @@ import {
   normalizePerpsMetadataInPlace,
   PERPS_ALWAYS_STRING_ARRAY_FIELDS,
   PERPS_STRING_OR_NULL_FIELDS,
+  resolveContractKey,
   resetContractMetadataStore,
   setContractMetadata,
   type PerpsContractMetadata,
@@ -45,6 +46,7 @@ import {
   type FundingHistoryEntry,
 } from "./platforms/adapters/hyperliquid";
 import { parseApexMarkets, type ApexContract, type ApexTicker, type ApexUiTicker } from "./platforms/adapters/apex";
+import { isGtradeRwaGroupName, toGtradePythPairKey } from "./platforms/adapters/gtrade";
 import { getCsvData } from "../spreadsheet";
 
 // ── utils.ts ──────────────────────────────────────────────────────────────────
@@ -113,6 +115,26 @@ describe("computeProtocolFees", () => {
   });
 });
 
+describe("gTrade adapter helpers", () => {
+  it("treats gTrade forex groups as RWA perps groups", () => {
+    expect(isGtradeRwaGroupName("stocks-1")).toBe(true);
+    expect(isGtradeRwaGroupName("indices")).toBe(true);
+    expect(isGtradeRwaGroupName("commodities-2")).toBe(true);
+    expect(isGtradeRwaGroupName("forex")).toBe(true);
+    expect(isGtradeRwaGroupName("forex-minor")).toBe(true);
+    expect(isGtradeRwaGroupName("forex-exotic")).toBe(true);
+    expect(isGtradeRwaGroupName("crypto")).toBe(false);
+    expect(isGtradeRwaGroupName("altcoins")).toBe(false);
+  });
+
+  it("builds exact Pyth pair keys from gTrade contracts", () => {
+    expect(toGtradePythPairKey("gtrade:USD-JPY")).toEqual({ base: "USD", quote: "JPY", key: "USD/JPY" });
+    expect(toGtradePythPairKey("gtrade:GOOGL_1-USD")).toEqual({ base: "GOOGL", quote: "USD", key: "GOOGL/USD" });
+    expect(toGtradePythPairKey("gtrade:FB-USD")).toEqual({ base: "META", quote: "USD", key: "META/USD" });
+    expect(toGtradePythPairKey("bad-contract")).toBeNull();
+  });
+});
+
 describe("groupBy", () => {
   it("groups items by key function", () => {
     const items = [
@@ -169,6 +191,28 @@ describe("market metadata store", () => {
   it("returns null for unknown contract", () => {
     expect(getContractMetadata("DOESNOTEXIST")).toBeNull();
     expect(hasContractMetadata("DOESNOTEXIST")).toBe(false);
+  });
+
+  it("resolves live gTrade pair IDs to Airtable canonical IDs", () => {
+    setContractMetadata("gtrade:USDMXN", meta);
+    setContractMetadata("gtrade:JPY", meta);
+    setContractMetadata("gtrade:AMZN-USD", meta);
+    setContractMetadata("gtrade:GOOGL", meta);
+
+    expect(resolveContractKey("gtrade:USD-MXN")).toBe("gtrade:usdmxn");
+    expect(resolveContractKey("gtrade:USD-JPY")).toBe("gtrade:jpy");
+    expect(resolveContractKey("gtrade:AMZN-USD")).toBe("gtrade:amzn-usd");
+    expect(resolveContractKey("gtrade:GOOGL-USD")).toBe("gtrade:googl");
+    expect(resolveContractKey("gtrade:AMZN_1-USD")).toBeUndefined();
+  });
+
+  it("does not resolve ambiguous generated aliases", () => {
+    setContractMetadata("cash:HOOD-USDT", meta);
+    setContractMetadata("cash:HOOD-USDC", meta);
+
+    expect(resolveContractKey("cash:HOOD")).toBeUndefined();
+    expect(resolveContractKey("cash:HOOD-USDT")).toBe("cash:hood-usdt");
+    expect(resolveContractKey("cash:HOOD-USDC")).toBe("cash:hood-usdc");
   });
 });
 
