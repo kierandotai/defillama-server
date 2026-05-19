@@ -6,8 +6,8 @@ import entities from "./protocols/entities";
 import treasuries from "./protocols/treasury";
 import { storeStaleCoins, StaleCoins } from "./storeTvlInterval/staleCoins";
 import { PromisePool } from '@supercharge/promise-pool'
-import { getCurrentBlocks } from "@defillama/sdk/build/computeTVL/blocks";
 import * as sdk from '@defillama/sdk'
+const { getCurrentBlocks } = sdk.blocks;
 import { shuffleArray } from "./utils/shared/shuffleArray";
 import { importAdapterDynamic } from "./utils/imports/importAdapter";
 

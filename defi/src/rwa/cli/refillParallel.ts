@@ -12,7 +12,9 @@ import fs from "fs";
 import path from "path";
 import https from "https";
 import crypto from "crypto";
-import { runInPromisePool } from "@defillama/sdk/build/generalUtil";
+
+import * as sdk from "@defillama/sdk";
+const { runInPromisePool } = sdk.util;
 import { prepareAtvlContext, runAtvlForTimestamp } from "../atvlRefill";
 import { getTimestampAtStartOfDay } from "../../utils/date";
 import { initPG, fetchMetadataPG, DAILY_RWA_DATA } from "../db";

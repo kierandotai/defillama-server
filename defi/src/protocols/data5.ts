@@ -1442,14 +1442,14 @@ const data5: Protocol[] = [
   },
   {
     id: "6955",
-    name: "Bullpen",
+    name: "Bullpen Perps",
     address: null,
     symbol: "-",
     url: "https://bullpen.fi/@defillama",
     referralUrl: "https://bullpen.fi/@defillama",
     description: "Trade anything onchain.  Powered by Hyperliquid, Solana, and (Redacted).",
     chain: "Hyperliquid L1",
-    logo: `${baseIconsUrl}/bullpen.jpg`,
+    logo: `${baseIconsUrl}/bullpen-perps.jpg`,
     audits: "0",
     gecko_id: null,
     cmcId: null,
@@ -1457,6 +1457,7 @@ const data5: Protocol[] = [
     chains: ["Hyperliquid L1"],
     module: "dummy.js",
     twitter: "BullpenFi",
+    parentProtocol: "parent#bullpen",
     dimensions: {
       fees: "bullpenfi-perps",
       derivatives: "bullpenfi-perps",
@@ -3825,6 +3826,9 @@ const data5: Protocol[] = [
       "https://github.com/slowmist/Knowledge-Base/blob/master/open-report-V2/smart-contract/Mu%20Protocol%20-%20SlowMist%20Audit%20Report.pdf",
     ],
     listedAt: 1764288644,
+    dimensions: {
+      fees: "mu-digital",
+    },
   },
   {
     id: "7056",
@@ -11610,7 +11614,10 @@ const data5: Protocol[] = [
     chains: ["Citrea"],
     module: "zentra/index.js",
     twitter: "ZentraFinance",
-    listedAt: 1771346982
+    listedAt: 1771346982,
+    dimensions: {
+      fees: "zentra",
+    },
   },
   {
     id: "7420",
@@ -12630,6 +12637,9 @@ const data5: Protocol[] = [
     module: "hyperlane/index.js",
     twitter: "hyperlane",
     listedAt: 1772126783,
+    dimensions: {
+      fees: "hyperlane",
+    },
   },
   {
     id: "7469",
@@ -14216,7 +14226,11 @@ const data5: Protocol[] = [
     chains: ["QIE"],
     module: "qie-dex/index.js",
     twitter: "dex_qi",
-    listedAt: 1773568599
+    listedAt: 1773568599,
+    dimensions: {
+      fees: "qie-dex",
+      dexs: "qie-dex",
+    }
   },
   {
     id: "7546",
@@ -14527,7 +14541,7 @@ const data5: Protocol[] = [
     audits: "0",
     gecko_id: null,
     cmcId: null,
-    category: "Prediction Market",
+    tags: ["Polymarket Builder"],
     chains: ["Polygon"],
     module: "dummy.js",
     twitter: "rainbowdotme",
@@ -16438,7 +16452,12 @@ const data5: Protocol[] = [
     twitter: "saturn_credit",
     listedAt: 1775766807,
     dimensions: {
-      fees: "saturn-protocol",
+      fees: {
+        adapter: "saturn-protocol",
+        genuineSpikes: [
+          ["2026-05-15", "STRC price drop due to ex-dividend event"],
+        ]
+      }
     }
   },
   {

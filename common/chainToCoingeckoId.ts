@@ -182,6 +182,7 @@ export const chainToCoingeckoId = {
   unichain: "unichain",
   ink: "ink",
   swellchain: "swellchain",
+  pharos: "pharos-network",
   plume_mainnet: "plume-network",
   hemi: "hemi",
   sty: "story",

@@ -115,15 +115,15 @@ const items = [
   { chain: 'vana', endpoint: 'https://api.goldsky.com/api/public/project_clnbo3e3c16lj33xva5r2aqk7/subgraphs/data-dex-vana/prod/gn', minTVL: 1e4, projectName: 'datadex' },
   { chain: 'tara', endpoint: 'https://indexer.lswap.app/subgraphs/name/taraxa/uniswap-v3', minTVL: 1e4, projectName: 'taraswap', },
   { chain: 'berachain', endpoint: 'https://api.berachain.com/', minTVL: 1e4, projectName: 'beraswap', },
-  { chain: 'ethereum', endpoint: uniV3('5zvR82QoaXYFyDEKLZ9t6v9adgnptxYpKpSbxtgVENFV'), minTVL: 1e4, minVolume: 1e4, projectName: 'uniswap-v3-ethereum' },
-  { chain: 'base',     endpoint: uniV3('43Hwfi3dJSoGpyas9VwNoDAv55yjgGrPpNSmbQZArzMG'), minTVL: 1e4, minVolume: 1e4, projectName: 'uniswap-v3-base' },
-  { chain: 'arbitrum', endpoint: uniV3('CJYGNhb7RvnhfBDjqpRnD3oxgyhibzc7fkAMa38YV3oS'), minTVL: 1e4, minVolume: 1e4, projectName: 'uniswap-v3-arbitrum' },
-  { chain: 'polygon',  endpoint: uniV3('3hCPRGf4z88VC5rsBKU5AA9FBBq5nF3jbKJG7VZCbhjm'), minTVL: 1e4, minVolume: 1e4, projectName: 'uniswap-v3-polygon' },
-  { chain: 'optimism', endpoint: uniV3('Cghf4LfVqPiFw6fp6Y5X5Ubc8UpmUhSfJL82zwiBFLaj'), minTVL: 1e4, minVolume: 1e4, projectName: 'uniswap-v3-optimism' },
-  { chain: 'celo',     endpoint: uniV3('ESdrTJ3twMwWVoQ1hUE2u7PugEHX3QkenudD6aXCkDQ4'), minTVL: 1e4, minVolume: 1e4, projectName: 'uniswap-v3-celo' },
-  // PancakeSwap V3 — dominant V3 venue on BSC, also strong on arbitrum. Same Uni V3 subgraph schema.
-  { chain: 'bsc',      endpoint: uniV3('Hv1GncLY5docZoGtXjo4kwbTvxm3MAhVZqBZE4sUT9eZ'), minTVL: 1e4, minVolume: 1e4, projectName: 'pancakeswap-v3-bsc' },
-  { chain: 'arbitrum', endpoint: uniV3('251MHFNN1rwjErXD2efWMpNS73SANZN8Ua192zw6iXve'), minTVL: 1e4, minVolume: 1e4, projectName: 'pancakeswap-v3-arbitrum' },
+  // { chain: 'ethereum', endpoint: uniV3('5zvR82QoaXYFyDEKLZ9t6v9adgnptxYpKpSbxtgVENFV'), minTVL: 1e4, minVolume: 1e4, projectName: 'uniswap-v3-ethereum' },
+  // { chain: 'base',     endpoint: uniV3('43Hwfi3dJSoGpyas9VwNoDAv55yjgGrPpNSmbQZArzMG'), minTVL: 1e4, minVolume: 1e4, projectName: 'uniswap-v3-base' },
+  // { chain: 'arbitrum', endpoint: uniV3('CJYGNhb7RvnhfBDjqpRnD3oxgyhibzc7fkAMa38YV3oS'), minTVL: 1e4, minVolume: 1e4, projectName: 'uniswap-v3-arbitrum' },
+  // { chain: 'polygon',  endpoint: uniV3('3hCPRGf4z88VC5rsBKU5AA9FBBq5nF3jbKJG7VZCbhjm'), minTVL: 1e4, minVolume: 1e4, projectName: 'uniswap-v3-polygon' },
+  // { chain: 'optimism', endpoint: uniV3('Cghf4LfVqPiFw6fp6Y5X5Ubc8UpmUhSfJL82zwiBFLaj'), minTVL: 1e4, minVolume: 1e4, projectName: 'uniswap-v3-optimism' },
+  // { chain: 'celo',     endpoint: uniV3('ESdrTJ3twMwWVoQ1hUE2u7PugEHX3QkenudD6aXCkDQ4'), minTVL: 1e4, minVolume: 1e4, projectName: 'uniswap-v3-celo' },
+  // // PancakeSwap V3 — dominant V3 venue on BSC, also strong on arbitrum. Same Uni V3 subgraph schema.
+  // { chain: 'bsc',      endpoint: uniV3('Hv1GncLY5docZoGtXjo4kwbTvxm3MAhVZqBZE4sUT9eZ'), minTVL: 1e4, minVolume: 1e4, projectName: 'pancakeswap-v3-bsc' },
+  // { chain: 'arbitrum', endpoint: uniV3('251MHFNN1rwjErXD2efWMpNS73SANZN8Ua192zw6iXve'), minTVL: 1e4, minVolume: 1e4, projectName: 'pancakeswap-v3-arbitrum' },
 ]
 
 items.forEach((config: any) => adapters[config.projectName] = getGraphCoinsAdapter(config));

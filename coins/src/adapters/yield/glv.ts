@@ -12,64 +12,7 @@ const contracts: { [chain: string]: { reader: string; store: string } } = {
   },
 };
 
-const abi = {
-  inputs: [
-    {
-      internalType: "contract DataStore",
-      name: "dataStore",
-      type: "address",
-    },
-    {
-      internalType: "uint256",
-      name: "start",
-      type: "uint256",
-    },
-    {
-      internalType: "uint256",
-      name: "end",
-      type: "uint256",
-    },
-  ],
-  name: "getGlvInfoList",
-  outputs: [
-    {
-      components: [
-        {
-          components: [
-            {
-              internalType: "address",
-              name: "glvToken",
-              type: "address",
-            },
-            {
-              internalType: "address",
-              name: "longToken",
-              type: "address",
-            },
-            {
-              internalType: "address",
-              name: "shortToken",
-              type: "address",
-            },
-          ],
-          internalType: "struct Glv.Props",
-          name: "glv",
-          type: "tuple",
-        },
-        {
-          internalType: "address[]",
-          name: "markets",
-          type: "address[]",
-        },
-      ],
-      internalType: "struct GlvReader.GlvInfo[]",
-      name: "",
-      type: "tuple[]",
-    },
-  ],
-  stateMutability: "view",
-  type: "function",
-};
+const abi = "function getGlvInfoList(address dataStore, uint256 start, uint256 end) view returns (((address glvToken, address longToken, address shortToken) glv, address[] markets)[])";
 
 async function getTokenPrices(chain: any, timestamp: number) {
   const { reader, store } = contracts[chain];

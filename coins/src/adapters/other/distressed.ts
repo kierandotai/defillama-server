@@ -67,6 +67,7 @@ export const contracts: { [chain: string]: { [token: string]: string } } = {
     USPD: "0x476ef9ac6d8673e220d0e8bc0a810c2dc6a2aa84", 
     yTUSD: '0x73a052500105205d34daf004eab301916da8190f',
     DGLD: "0xa9299c296d7830a99414d1e5546f5171fa01e9c8",
+    BOBO: "0xb90b2a35c65dbc466b04240097ca756ad2005295",  // invalid price
     USDTC: "0x0f6b862e05a9b528b0002261f9eb616e6c4452e9"
   },
   // beam: {
@@ -91,6 +92,13 @@ export const contracts: { [chain: string]: { [token: string]: string } } = {
   },
   klaytn: {
     USDK: "0xd2137fdf10bd9e4e850c17539eb24cfe28777753",
+  },
+  verus: {  // verus bridge is hacked
+    DAI: "iGBs4DWztRNvNEJBt4mqHszLxfKTNHTkhM",
+    MKR: "iCkKJuJScy4Z6NSDK7Mt42ZAB2NEnAE1o4",
+    ETH: "i9nwxtKuVYX4MSbeULLiK2ttVi6rUEhh4X",
+    TBTC: "iS8TfRPfVpKo5FVfSUzfHBQxo9KuzpnqLU",
+    USDT: "i9oCSqKALwJtcv49xUKS2U2i79h1kX6NEY",
   },
   arbitrum: {
     GOLD: "0xc4be0798e5b5b1C15edA36d9B2D8c1A60717fA92",
@@ -348,6 +356,7 @@ export const contracts: { [chain: string]: { [token: string]: string } } = {
     vDOT: "0xbc33b4d48f76d17a1800afcb730e8a6aaada7fe5", // Hyperbridge was hacked
     WANDER: "0xef0fd52e65ddcdc201e2055a94d2abff6ff10a7a",
     AETX: "0xfe0c0b15798b8c9107cd4aa556a87eb031263e8b",
+    BOBO: "0x570b1533f6daa82814b25b62b5c7c4c55eb83947",  // BOBO is mispriced
     SFUND: "0x633e254585ade6e9d40d2a4b8cc2f3769b94cb48",
     clBTC: "0x8d2757ea27aabf172da4cca4e5474c76016e3dc5", // IS NOT BACKED
     DGLD: "0xd02f50e1017f493ffffa70c8fcf09e349e11d6c9", // dropped to 0, coingecko mispriced it
@@ -359,7 +368,11 @@ export const contracts: { [chain: string]: { [token: string]: string } } = {
   },
   sonic: {
     wstkscUSD: "0x896f4D49916aC5cfC36d7a260a7039ba4Ea317b6",
-    ghUSDC: "0xf6bc16b79c469b94cdd25f3e2334dd4fee47a581"
+    ghUSDC: "0xf6bc16b79c469b94cdd25f3e2334dd4fee47a581",
+    vgUSDC: "0xf6f87073cf8929c206a77b0694619dc776f89885",
+    wmetascUSD: "0xcccccccca9fc69a2b32408730011edb3205a93a1",
+    "wmooSiloV2SonicUSDC.e": "0x7870ddfd5aca4e977b2287e9a212bcbe8fc4135a",
+    "bscUSD-46": "0xe6605932e4a686534d19005bb9db0fba1f101272",
   },
   berachain: {
     "pumpBTC.bera": "0x1fCca65fb6Ae3b2758b9b2B394CB227eAE404e1E",

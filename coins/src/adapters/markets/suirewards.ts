@@ -4,7 +4,7 @@ import {
   addToDBWritesList,
   getTokenAndRedirectDataMap,
 } from "../utils/database";
-import { runInPromisePool } from "@defillama/sdk/build/util";
+import * as sdk from "@defillama/sdk";
 import { getTokenInfo } from "../utils/sui";
 
 export async function suirewards(timestamp: number) {
@@ -23,7 +23,7 @@ export async function suirewards(timestamp: number) {
 
   const tokenInfos: { [key: string]: { decimals: number; symbol: string } } =
     {};
-  await runInPromisePool({
+  await sdk.util.runInPromisePool({
     items: data.map(({ target_currency }: any) => target_currency),
     concurrency: 5,
     processor: async (target_currency: string) => {

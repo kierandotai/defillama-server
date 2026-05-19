@@ -7,13 +7,7 @@ async function getTokenPrices(chain: string, timestamp: number) {
   const api = await getApi(chain, timestamp);
   const chainLinkOracle = "0x4b08a30c6208681eFF2980981057ce4C8bCB2310";
   const jEURx = "0xfCDecfe37463912C03A644128EB02A1147715E36";
-  const chainLinkOracleLatestAnswerAbi = {
-    inputs: [],
-    name: "latestAnswer",
-    outputs: [{ internalType: "int256", name: "", type: "int256" }],
-    stateMutability: "view",
-    type: "function",
-  };
+  const chainLinkOracleLatestAnswerAbi = 'int256:latestAnswer' 
   const eurUSDPrice = await api.call({
     target: chainLinkOracle,
     abi: chainLinkOracleLatestAnswerAbi,

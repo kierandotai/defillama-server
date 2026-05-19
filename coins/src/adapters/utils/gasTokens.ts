@@ -1,4 +1,5 @@
-import { getBalance } from "@defillama/sdk/build/eth/index";
+import * as sdk from "@defillama/sdk";
+const getBalance = sdk.api.eth.getBalance;  
 
 export const wrappedGasTokens: { [key: string]: any } = {
   ethereum: "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2",

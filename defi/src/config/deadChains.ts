@@ -11,6 +11,7 @@ export const deadChains = [
   'kinto', // chain is dead,
   'inevm',
   'fluence',
+  'zksync',  // zksync lite, deprecated in favor of zksync era, which is still active
   'sx',  // deprecated in favor of sx rollup?
   'titan',  // https://tokenize.exchange/ the entity behind it is insolvent?
   'mint', // shutdown 2026-04-17: https://x.com/Mint_Blockchain/status/2044980026819617147

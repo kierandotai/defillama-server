@@ -1,22 +1,4 @@
 {
-  "curvePoolQuoteAlXaiToXai": {
-    "stateMutability":"view",
-    "type":"function",
-    "name":"get_dy",
-    "inputs": [
-      {"name":"i","type":"int128"},
-      {"name":"j","type":"int128"},
-      {"name":"dx","type":"uint256"}
-    ],
-    "outputs": [{"name":"","type":"uint256"}]
-  },
-  "previewSharesToLiquidity":  {
-    "type": "function",
-    "name": "previewSharesToLiquidity",
-    "inputs": [
-      { "name": "amount", "type": "uint256", "internalType": "uint256" }
-    ],
-    "outputs": [{ "name": "", "type": "uint256", "internalType": "uint256" }],
-    "stateMutability": "view"
-  }
+  "curvePoolQuoteAlXaiToXai": "function get_dy(int128 i, int128 j, uint256 dx) view returns (uint256)",
+  "previewSharesToLiquidity": "function previewSharesToLiquidity(uint256 amount) view returns (uint256)"
 }

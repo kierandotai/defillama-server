@@ -69,35 +69,4 @@ async function getPrices(
     .map((answer: any) => answer / 10 ** 8)
 }
 
-const CHAINLINK_FEED_ABI = {
-  "name": "latestRoundData",
-  "outputs": [
-    {
-      "internalType": "uint80",
-      "name": "roundId",
-      "type": "uint80"
-    },
-    {
-      "internalType": "int256",
-      "name": "answer",
-      "type": "int256"
-    },
-    {
-      "internalType": "uint256",
-      "name": "startedAt",
-      "type": "uint256"
-    },
-    {
-      "internalType": "uint256",
-      "name": "updatedAt",
-      "type": "uint256"
-    },
-    {
-      "internalType": "uint80",
-      "name": "answeredInRound",
-      "type": "uint80"
-    }
-  ],
-  "stateMutability": "view",
-  "type": "function"
-}
+const CHAINLINK_FEED_ABI = "function latestRoundData() view returns (uint80 roundId, int256 answer, uint256 startedAt, uint256 updatedAt, uint80 answeredInRound)"

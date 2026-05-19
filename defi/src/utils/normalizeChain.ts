@@ -3533,6 +3533,9 @@ export const chainCoingeckoIds = {
     url: "https://www.lukso.network",
     github: ["lukso-network"],
     chainId: 42,
+    dimensions: {
+      fees: "lukso",
+    },
   },
   "Joltify": {
     geckoId: "joltify",
@@ -5282,6 +5285,9 @@ export const chainCoingeckoIds = {
     twitter: "kasplex",
     url: "https://kasplex.org/",
     github: ["kasplex"],
+    dimensions: {
+      fees: "kasplex",
+    },
   },
   "0G": {
     geckoId: "zero-gravity",
@@ -5964,6 +5970,9 @@ export const chainCoingeckoIds = {
     twitter: "fluentxyz",
     url: "https://www.fluent.xyz/",
     chainId: 25363,
+    dimensions: {
+      fees: "fluent",
+    },
   },
   "Pharos": {
     geckoId: "pharos-network",
@@ -6022,6 +6031,35 @@ export const chainCoingeckoIds = {
     twitter: "GensynFND",
     url: "https://gensyn.network/",
     chainId: 685689,
+  },
+  "Moca": {
+    geckoId: "mocaverse",
+    symbol: "MOCA",
+    cmcId: "31526",
+    categories: ["EVM"],
+    twitter: "Moca_Network",
+    url: "https://moca.network/",
+    chainId: 2288,
+    dimensions: {
+      fees: "moca",
+    },
+  },
+  "Strato": {
+    geckoId: null,
+    symbol: null,
+    cmcId: null,
+    categories: ["EVM"],
+    twitter: "strato_net",
+    url: "https://strato.nexus/",
+    github: ["strato-net"],
+  },
+  "ALEO": {
+    geckoId: "aleo",
+    symbol: "ALEO",
+    cmcId: "32193",
+    twitter: "AleoHQ",
+    url: "https://aleo.org/",
+    github: ["AleoNet"],
   },
 } as unknown as ChainCoinGekcoIds;
 
@@ -6277,6 +6315,7 @@ const chainLabelMap = {
   "heima": "Heima",
   "dango": "Dango",
   "rise": "RISE",
+  "aleo": "Aleo",
 } as { [key: string]: string }
 
 // When we decide to change the display name of a chain, we add the mapping for the new name here
@@ -6333,6 +6372,7 @@ const newChainLabelMap = {
   "orderly": "Orderly Network",
   "area": "Areum Network",
   "dango": "Dango Mainnet",
+  "aleo": "ALEO",
 } as { [key: string]: string }
 
 const allChainLabelMap = {

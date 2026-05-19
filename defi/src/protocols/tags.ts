@@ -36,7 +36,8 @@ export const CategoryTagMap = {
     "Hyperliquid Builder",
     "Orderly Builder",
     "SYMMIO Builder",
-    "Extended Builder"
+    "Extended Builder",
+    "Polymarket Builder"
   ],
   'Staking Pool': [
     'Hyperliquid Staking',

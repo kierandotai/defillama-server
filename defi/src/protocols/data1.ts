@@ -16819,7 +16819,8 @@ The eWIT token is a custodial, wrapped version of the Witnet coin managed by the
     cmcId: "11678",
     tags: ["AMM"],
     chains: ["Stellar"],
-    module: "lumenswap/index.js",
+    //module: "lumenswap/index.js", removed tvl in favor of Stellar AMM
+    module: "dummy.js",
     twitter: "lumenswap",
     listedAt: 1637392233,
     github: ["lumenswap"],

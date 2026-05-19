@@ -5,7 +5,10 @@ import { getCurrentUnixTimestamp } from "./utils/date";
 import genesisBlockTimes from './genesisBlockTimes';
 import { sendMessage } from "../../defi/src/utils/discord";
 import { DAY } from "./utils/processCoin";
+
+// WARNING: changing this breaks it during build
 import { getProvider } from "@defillama/sdk/build/general"
+
 import { resolveChain } from "./utils/chainIdMap"
 
 interface TimestampBlock {

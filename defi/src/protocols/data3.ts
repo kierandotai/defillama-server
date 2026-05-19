@@ -15060,7 +15060,7 @@ const data3_0: Protocol[] = [
     audits: "0",
     gecko_id: "aark-digital",
     cmcId: "32217",
-    tags: ["Orderly Builder"],
+    category: "Derivatives",
     chains: ["Arbitrum"],
     module: "aark/index.js",
     twitter: "Aark_Digital",
@@ -27542,7 +27542,12 @@ const data3_1: Protocol[] = [
     parentProtocol: "parent#kelp-dao",
     listedAt: 1703173957,
     dimensions: {
-      fees: "kelp"
+      fees: {
+        adapter: "kelp",
+        genuineSpikes: [
+          ["2026-05-15", "rsETH protocol operations fully resumed and exchange rate updated"], //https://x.com/KelpDAO/status/2055307283647844495
+        ]
+      }
     }
   },
   {
@@ -29779,7 +29784,10 @@ const data3_1: Protocol[] = [
     listedAt: 1705662884,
     dimensions: {
       fees: "sudofinance",
-      derivatives: "sudofinance"
+      derivatives: {
+        adapter: "sudofinance",
+        genuineSpikes: [["2026-05-13", "-"]]
+      }
     }
   },
   {
@@ -31263,7 +31271,8 @@ const data3_1: Protocol[] = [
     listedAt: 1707227945,
     dimensions: {
       fees: "flashtrade",
-      derivatives: "flashtrade"
+      derivatives: "flashtrade",
+      "open-interest": "flashtrade-oi"
     }
   },
   {
@@ -38482,6 +38491,9 @@ const data3_2: Protocol[] = [
     twitter: "Fathom_fi",
     parentProtocol: "parent#fathom",
     listedAt: 1712156169,
+    dimensions: {
+      fees: "fathom-cdp"
+    }
   },
   {
     id: "4425",
@@ -45353,16 +45365,16 @@ const data3_3: Protocol[] = [
   },
   {
     id: "4738",
-    name: "Tradoor",
+    name: "Tradoor TON",
     address: "bsc:0x9123400446a56176eb1b6be9ee5cf703e409f492",
     symbol: "TRADOOR",
     url: "https://tradoor.io",
     description:
       "Tradoor is the industry’s first NDMM exchange - using smart math and safety measures to allow people to trade with confidence - protecting traders, LPs, and the protocol from unexpected market changes.",
     chain: "TON",
-    logo: `${baseIconsUrl}/tradoor.png`,
+    logo: `${baseIconsUrl}/tradoor-ton.jpg`,
     audits: "2",
-    gecko_id: "tradoor",
+    gecko_id: null,
     cmcId: null,
     category: "Derivatives",
     chains: ["TON"],
@@ -45371,7 +45383,6 @@ const data3_3: Protocol[] = [
     // https://docs.tradoor.io/tradoor-user-guide-v2/others/oracle-data
     oraclesBreakdown: [ { name: "Pyth", type: "Primary", proof: [] } ],
     audit_links: ["https://docs.tradoor.io/audits"],
-    github: ["TonTradoor"],
     listedAt: 1717758106,
     dimensions: {
       derivatives: "tradoor"
@@ -48371,6 +48382,9 @@ const data3_3: Protocol[] = [
       }
     ],
     listedAt: 1720775830,
+    dimensions: {
+      fees: "midas-rwa",
+    },
   },
   {
     id: "4874",

@@ -1,52 +1,10 @@
 {
-  "proxy": {
-    "constant": true,
-    "inputs": [],
-    "name": "proxy",
-    "outputs": [
-      { "internalType": "contract Proxy", "name": "", "type": "address" }
-    ],
-    "payable": false,
-    "stateMutability": "view",
-    "type": "function"
-  },
-  "pricePrecision": {
-    "inputs": [],
-    "name": "PRICE_PRECISION",
-    "outputs": [{ "internalType": "uint256", "name": "", "type": "uint256" }],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  "getAums": {
-    "inputs": [],
-    "name": "getAums",
-    "outputs": [
-      { "internalType": "uint256[]", "name": "", "type": "uint256[]" }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  "totalAssets": {
-    "inputs": [],
-    "name": "totalAssets",
-    "outputs": [{ "internalType": "uint256", "name": "", "type": "uint256" }],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  "GDpriceToStakedToken": {
-    "inputs": [
-      { "internalType": "uint256", "name": "_pid", "type": "uint256" }
-    ],
-    "name": "GDpriceToStakedtoken",
-    "outputs": [{ "internalType": "uint256", "name": "", "type": "uint256" }],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  "underlying": {
-    "inputs": [],
-    "name": "underlying",
-    "outputs": [{ "internalType": "address", "name": "", "type": "address" }],
-    "stateMutability": "view",
-    "type": "function"
-  }
+  "proxy": "address:proxy",
+  "PRICE_PRECISION": "uint256:PRICE_PRECISION",
+  "getAums": "uint256[]:getAums",
+  "totalAssets": "uint256:totalAssets",
+  "GDpriceToStakedtoken": "function GDpriceToStakedtoken(uint256 _pid) view returns (uint256)",
+  "underlying": "address:underlying",
+  "pricePrecision": "uint256:PRICE_PRECISION",
+  "GDpriceToStakedToken": "function GDpriceToStakedtoken(uint256 _pid) view returns (uint256)"
 }
