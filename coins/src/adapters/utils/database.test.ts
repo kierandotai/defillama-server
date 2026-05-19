@@ -3,6 +3,10 @@ jest.mock("../../utils/shared/dynamodb", () => ({
   batchWrite: jest.fn(),
 }));
 
+jest.mock("./chRedisWrite", () => ({
+  dualWriteToChRedis: jest.fn().mockResolvedValue(undefined),
+}));
+
 jest.mock("../../../../defi/src/utils/discord", () => ({
   sendMessage: jest.fn().mockResolvedValue(undefined),
 }));
@@ -20,11 +24,15 @@ jest.mock("@defillama/sdk", () => ({
 }));
 
 import { staleMargin } from "../../utils/coingeckoPlatforms";
-import { batchGet } from "../../utils/shared/dynamodb";
+import { batchGet, batchWrite } from "../../utils/shared/dynamodb";
 import { Write } from "./dbInterfaces";
-import { filterWritesWithLowConfidence } from "./database";
+import {
+  batchWriteWithAlerts,
+  filterWritesWithLowConfidence,
+} from "./database";
 
 const mockedBatchGet = batchGet as jest.MockedFunction<typeof batchGet>;
+const mockedBatchWrite = batchWrite as jest.MockedFunction<typeof batchWrite>;
 
 function now() {
   return Math.floor(Date.now() / 1000);
@@ -56,6 +64,10 @@ function read(PK: string, overrides: Record<string, any> = {}) {
 describe("filterWritesWithLowConfidence", () => {
   beforeEach(() => {
     mockedBatchGet.mockReset();
+    mockedBatchWrite.mockReset();
+    mockedBatchWrite.mockImplementation(async (items: any[]) => ({
+      writeCount: items.length,
+    }));
   });
 
   it("accepts lower-confidence writes when the stored asset price is stale", async () => {
@@ -161,5 +173,133 @@ describe("filterWritesWithLowConfidence", () => {
 
     expect(result).toHaveLength(1);
     expect(result[0].PK).toBe(assetPK);
+  });
+
+  it("does not rewrite stale CoinGecko redirects when the CG price is zero", async () => {
+    const assetPK = "asset#tempo:0xabc";
+    const cgPK = "coingecko#path-usd";
+    mockedBatchGet
+      .mockResolvedValueOnce([read(assetPK, { redirect: cgPK })])
+      .mockResolvedValueOnce([
+        read(cgPK, {
+          adapter: "coingecko",
+          timestamp: now() - staleMargin - 1,
+          price: 0,
+        }),
+      ]);
+
+    const result = await filterWritesWithLowConfidence([
+      write(assetPK, { price: 1.01, confidence: 0.9 }),
+    ]);
+
+    expect(result).toHaveLength(1);
+    expect(result[0].PK).toBe(assetPK);
+  });
+
+  it("rewrites only the highest-confidence asset when multiple assets share one stale CoinGecko redirect", async () => {
+    const tempoPK = "asset#tempo:0xaaa";
+    const basePK = "asset#base:0xbbb";
+    const cgPK = "coingecko#shared-token";
+    mockedBatchGet
+      .mockResolvedValueOnce([
+        read(tempoPK, { redirect: cgPK }),
+        read(basePK, { redirect: cgPK }),
+      ])
+      .mockResolvedValueOnce([
+        read(cgPK, {
+          adapter: "coingecko",
+          timestamp: now() - staleMargin - 1,
+          price: 1,
+        }),
+      ]);
+
+    const result = await filterWritesWithLowConfidence([
+      write(tempoPK, { price: 1.01, confidence: 0.88 }),
+      write(basePK, { price: 0.99, confidence: 0.94 }),
+    ]);
+
+    expect(result.map((w) => w.PK).sort()).toEqual([cgPK, tempoPK].sort());
+    expect(result.find((w) => w.PK === cgPK)?.price).toBe(0.99);
+  });
+});
+
+describe("batchWriteWithAlerts", () => {
+  beforeEach(() => {
+    mockedBatchGet.mockReset();
+    mockedBatchWrite.mockReset();
+    mockedBatchWrite.mockImplementation(async (items: any[]) => ({
+      writeCount: items.length,
+    }));
+  });
+
+  function movementWritePair(
+    PK: string,
+    timestamp: number,
+    price: number
+  ): Write[] {
+    return [
+      write(PK, { SK: timestamp, price, confidence: 0.9 }),
+      write(PK, {
+        SK: 0,
+        price,
+        confidence: 0.9,
+        timestamp,
+        symbol: "TEST",
+        decimals: 18,
+      }),
+    ];
+  }
+
+  it("allows large downward moves before the previous row is stale by 3h", async () => {
+    const assetPK = "asset#tempo:0xabc";
+    const timestamp = now();
+    const items = movementWritePair(assetPK, timestamp, 0.4);
+    mockedBatchGet.mockResolvedValueOnce([
+      read(assetPK, {
+        price: 1,
+        confidence: 0.9,
+        timestamp: now() - 2 * 60 * 60,
+      }),
+    ]);
+
+    await batchWriteWithAlerts(items, true);
+
+    expect(mockedBatchWrite).toHaveBeenCalledWith(items, true);
+  });
+
+  it("blocks large downward moves when the previous row is stale by 3h but still inside the 6h movement window", async () => {
+    const assetPK = "asset#tempo:0xabc";
+    const timestamp = now();
+    mockedBatchGet.mockResolvedValueOnce([
+      read(assetPK, {
+        price: 1,
+        confidence: 0.9,
+        timestamp: now() - 4 * 60 * 60,
+      }),
+    ]);
+
+    await batchWriteWithAlerts(
+      movementWritePair(assetPK, timestamp, 0.4),
+      true
+    );
+
+    expect(mockedBatchWrite).toHaveBeenCalledWith([], true);
+  });
+
+  it("allows large downward moves after a normal-confidence row has left the 6h movement window", async () => {
+    const assetPK = "asset#tempo:0xabc";
+    const timestamp = now();
+    const items = movementWritePair(assetPK, timestamp, 0.4);
+    mockedBatchGet.mockResolvedValueOnce([
+      read(assetPK, {
+        price: 1,
+        confidence: 0.9,
+        timestamp: now() - 7 * 60 * 60,
+      }),
+    ]);
+
+    await batchWriteWithAlerts(items, true);
+
+    expect(mockedBatchWrite).toHaveBeenCalledWith(items, true);
   });
 });
