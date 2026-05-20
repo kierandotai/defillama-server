@@ -12,8 +12,8 @@ import {
 import { validate } from '../../utils/validation';
 import { ApiResponse } from '../../utils/config/apiClient';
 
-const apiClient = createApiClient(endpoints.TVL.BASE_URL);
-const TVL_ENDPOINTS = endpoints.TVL;
+const apiClient = createApiClient(endpoints.TVL_PRO.BASE_URL);
+const TVL_ENDPOINTS = endpoints.TVL_PRO;
 
 describe('TVL API - Chain Assets', () => {
   let chainAssetsResponse: ApiResponse<ChainAssets>;

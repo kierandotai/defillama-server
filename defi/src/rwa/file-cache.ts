@@ -2,7 +2,7 @@ import fs from 'fs';
 import path from 'path';
 
 // Bump this version to reset the cache
-const CACHE_VERSION = 'v3.07';
+const CACHE_VERSION = 'v3.10';
 
 const CACHE_DIR = process.env.RWA_CACHE_DIR || path.join(__dirname, '.rwa-cache');
 const VERSIONED_CACHE_DIR = path.join(CACHE_DIR, CACHE_VERSION);
@@ -145,6 +145,7 @@ export async function storeHistoricalDataForId(id: string, data: any[]): Promise
 
 export async function readHistoricalDataForId(id: string): Promise<any[] | null> {
     const result = await readRouteData(`charts/${id}.json`, { skipErrorLog: true });
+    if (Array.isArray(result)) return result;
     return result?.data || null;
 }
 

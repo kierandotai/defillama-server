@@ -58,3 +58,20 @@ export const blockResponseSchema = z.object({
   timestamp: z.number(),
 });
 
+// Schema for /batchHistorical
+export const batchHistoricalPricePointSchema = z.object({
+  timestamp: z.number(),
+  price: z.number(),
+  confidence: z.number().optional(),
+});
+
+export const batchHistoricalCoinDataSchema = z.object({
+  symbol: z.string(),
+  decimals: z.number().optional(),
+  prices: z.array(batchHistoricalPricePointSchema),
+});
+
+export const batchHistoricalResponseSchema = z.object({
+  coins: z.record(z.string(), batchHistoricalCoinDataSchema),
+});
+

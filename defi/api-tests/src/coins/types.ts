@@ -10,6 +10,9 @@ import {
   firstPriceSchema,
   pricesFirstResponseSchema,
   blockResponseSchema,
+  batchHistoricalPricePointSchema,
+  batchHistoricalCoinDataSchema,
+  batchHistoricalResponseSchema,
 } from './schemas';
 
 // Infer types from schemas
@@ -27,6 +30,10 @@ export type FirstPrice = z.infer<typeof firstPriceSchema>;
 export type PricesFirstResponse = z.infer<typeof pricesFirstResponseSchema>;
 
 export type BlockResponse = z.infer<typeof blockResponseSchema>;
+
+export type BatchHistoricalPricePoint = z.infer<typeof batchHistoricalPricePointSchema>;
+export type BatchHistoricalCoinData = z.infer<typeof batchHistoricalCoinDataSchema>;
+export type BatchHistoricalResponse = z.infer<typeof batchHistoricalResponseSchema>;
 
 // Type guards
 export function isPricesCurrentResponse(data: unknown): data is PricesCurrentResponse {
@@ -51,5 +58,9 @@ export function isPricesFirstResponse(data: unknown): data is PricesFirstRespons
 
 export function isBlockResponse(data: unknown): data is BlockResponse {
   return blockResponseSchema.safeParse(data).success;
+}
+
+export function isBatchHistoricalResponse(data: unknown): data is BatchHistoricalResponse {
+  return batchHistoricalResponseSchema.safeParse(data).success;
 }
 
