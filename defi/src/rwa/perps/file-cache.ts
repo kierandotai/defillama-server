@@ -2,11 +2,7 @@ import fs from 'fs';
 import path from 'path';
 
 // Bump this version to reset the cache
-<<<<<<< may19-coins
-const CACHE_VERSION = 'v1.91';
-=======
 const CACHE_VERSION = 'v2.00';
->>>>>>> master
 
 const CACHE_DIR = process.env.RWA_PERPS_CACHE_DIR || path.join(__dirname, '.rwa-perps-cache');
 const VERSIONED_CACHE_DIR = path.join(CACHE_DIR, CACHE_VERSION);
