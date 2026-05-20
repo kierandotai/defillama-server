@@ -149,6 +149,15 @@ export async function readHistoricalDataForId(id: string): Promise<any[] | null>
     return result?.data || null;
 }
 
+// Pre-computed daily net-flow series per ID (served by /flows/:id)
+export async function storeFlowsForId(id: string, data: any[]): Promise<void> {
+    await storeRouteData(`flows/${id}.json`, data);
+}
+
+export async function readFlowsForId(id: string): Promise<any[] | null> {
+    return await readRouteData(`flows/${id}.json`, { skipErrorLog: true });
+}
+
 export function mergeHistoricalData(
     existingData: any[] | null,
     newRecords: any[]
@@ -175,16 +184,19 @@ export function mergeHistoricalData(
     return merged;
 }
 
-// PG Cache - stores asset data with chain breakdown (chain keys), keyed by timestamp
+// PG Cache - stores asset data with chain breakdown (chain keys), keyed by timestamp.
+// totalSupply: null = no data; 0 = supply is genuinely zero.
 export interface PGCacheRecord {
     onChainMcap: number;
     activeMcap: number;
     defiActiveTvl: number;
+    totalSupply: number | null;
     chains: {
         [chainKey: string]: {
             onChainMcap: number;
             activeMcap: number;
             defiActiveTvl: number;
+            totalSupply: number | null;
         };
     };
 }

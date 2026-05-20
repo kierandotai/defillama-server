@@ -16,8 +16,9 @@ import {
   PGCacheRecord,
   getPGSyncMetadata,
   setPGSyncMetadata,
+  storeFlowsForId,
 } from './file-cache';
-import { initPG, fetchCurrentPG, fetchMetadataPG, fetchAllDailyRecordsPG, fetchMaxUpdatedAtPG, fetchAllDailyIdsPG, fetchDailyRecordsForIdPG, fetchDailyRecordsWithChainsPG, fetchDailyRecordsWithChainsForIdPG } from './db';
+import { initPG, fetchCurrentPG, fetchMetadataPG, fetchAllDailyRecordsPG, fetchMaxUpdatedAtPG, fetchAllDailyIdsPG, fetchDailyRecordsForIdPG, fetchDailyRecordsWithChainsPG, fetchDailyRecordsWithChainsForIdPG, computeFlowSeries, FlowRow } from './db';
 
 import { shouldEmitRwaBreakdownItem } from './chartBreakdown';
 import { rwaSlug, toFiniteNumberOrZero, smoothHistoricalData, normalizeRwaMetadataForApiInPlace } from './utils';
@@ -152,7 +153,7 @@ function generateIdMap(
   return idMap;
 }
 
-function trimLeadingZeros(data: Array<{ timestamp: number; onChainMcap: number; defiActiveTvl: number; activeMcap?: number }>): typeof data {
+export function trimLeadingZeros<T extends { timestamp: number; onChainMcap: number; defiActiveTvl: number; activeMcap?: number }>(data: T[]): T[] {
   while (data.length > 0) {
     const first = data[0];
     if (first.onChainMcap === 0 && first.defiActiveTvl === 0 && (!first.activeMcap || first.activeMcap === 0)) {
@@ -282,7 +283,7 @@ function sumObjectValues(obj: any): number {
   }, 0);
 }
 
-const PG_CACHE_METRICS = ['onChainMcap', 'activeMcap', 'defiActiveTvl'] as const;
+const PG_CACHE_METRICS = ['onChainMcap', 'activeMcap', 'defiActiveTvl', 'totalSupply'] as const;
 
 // Maximum consecutive anomalous days to bridge (must match utils.ts MAX_SPIKE_RUN)
 const MAX_SPIKE_RUN = 5;
@@ -345,8 +346,9 @@ function removePGSpikes(
  * Smooths PG cache time-series data (chain-level breakdown) by:
  *   1. Removing spikes/dips (including multi-day runs) at aggregate and per-chain level.
  *   2. Filling multi-day gaps with linear interpolation.
+ * totalSupply nulls are preserved (no synthesised values, no gap interpolation).
  */
-function smoothPGCacheData(data: PGCacheData): PGCacheData {
+export function smoothPGCacheData(data: PGCacheData): PGCacheData {
   const timestamps = Object.keys(data).map(Number).sort((a, b) => a - b);
   if (timestamps.length < 2) return data;
 
@@ -360,6 +362,7 @@ function smoothPGCacheData(data: PGCacheData): PGCacheData {
     onChainMcap: data[ts].onChainMcap,
     activeMcap: data[ts].activeMcap,
     defiActiveTvl: data[ts].defiActiveTvl,
+    totalSupply: data[ts].totalSupply,
     chains: Object.fromEntries(
       Object.entries(data[ts].chains || {}).map(([k, v]) => [k, { ...v }])
     ),
@@ -369,20 +372,27 @@ function smoothPGCacheData(data: PGCacheData): PGCacheData {
   for (const metric of PG_CACHE_METRICS) {
     removePGSpikes(
       entries,
-      (e) => e[metric],
-      (e, v) => { e[metric] = v; }
+      (e) => (e[metric] === null ? NaN : e[metric]),
+      (e, v) => {
+        if (metric === 'totalSupply' && e[metric] === null) return;
+        e[metric] = v;
+      }
     );
   }
 
   // Step 1b: remove spikes/dips — per-chain metrics
-  const zeroPGChain = { onChainMcap: 0, activeMcap: 0, defiActiveTvl: 0 };
+  const defaultPGChain = { onChainMcap: 0, activeMcap: 0, defiActiveTvl: 0, totalSupply: null as number | null };
   for (const chainKey of allChainKeys) {
     for (const metric of PG_CACHE_METRICS) {
       removePGSpikes(
         entries,
-        (e) => (e.chains[chainKey] ?? zeroPGChain)[metric],
+        (e) => {
+          const v = (e.chains[chainKey] ?? defaultPGChain)[metric];
+          return v === null ? NaN : v;
+        },
         (e, v) => {
-          if (!e.chains[chainKey]) e.chains[chainKey] = { ...zeroPGChain };
+          if (!e.chains[chainKey]) e.chains[chainKey] = { ...defaultPGChain };
+          if (metric === 'totalSupply' && e.chains[chainKey].totalSupply === null) return;
           e.chains[chainKey][metric] = v;
         }
       );
@@ -390,10 +400,12 @@ function smoothPGCacheData(data: PGCacheData): PGCacheData {
   }
 
   // Step 2: fill gaps with linear interpolation
+  const interpSupply = (a: number | null, b: number | null, f: number): number | null =>
+    a === null || b === null ? null : a + (b - a) * f;
   const result: PGCacheData = {};
   for (let i = 0; i < entries.length; i++) {
-    const { timestamp, chains, onChainMcap, activeMcap, defiActiveTvl } = entries[i];
-    result[timestamp] = { onChainMcap, activeMcap, defiActiveTvl, chains };
+    const { timestamp, chains, onChainMcap, activeMcap, defiActiveTvl, totalSupply } = entries[i];
+    result[timestamp] = { onChainMcap, activeMcap, defiActiveTvl, totalSupply, chains };
 
     if (i < entries.length - 1) {
       const curr = entries[i];
@@ -405,18 +417,20 @@ function smoothPGCacheData(data: PGCacheData): PGCacheData {
         const intTs = curr.timestamp + 86400 * j;
         const intChains: PGCacheRecord['chains'] = {};
         for (const chainKey of allChainKeys) {
-          const cC = curr.chains[chainKey] ?? zeroPGChain;
-          const nC = next.chains[chainKey] ?? zeroPGChain;
+          const cC = curr.chains[chainKey] ?? defaultPGChain;
+          const nC = next.chains[chainKey] ?? defaultPGChain;
           intChains[chainKey] = {
             onChainMcap: cC.onChainMcap + (nC.onChainMcap - cC.onChainMcap) * f,
             activeMcap: cC.activeMcap + (nC.activeMcap - cC.activeMcap) * f,
             defiActiveTvl: cC.defiActiveTvl + (nC.defiActiveTvl - cC.defiActiveTvl) * f,
+            totalSupply: interpSupply(cC.totalSupply, nC.totalSupply, f),
           };
         }
         result[intTs] = {
           onChainMcap: curr.onChainMcap + (next.onChainMcap - curr.onChainMcap) * f,
           activeMcap: curr.activeMcap + (next.activeMcap - curr.activeMcap) * f,
           defiActiveTvl: curr.defiActiveTvl + (next.defiActiveTvl - curr.defiActiveTvl) * f,
+          totalSupply: interpSupply(curr.totalSupply, next.totalSupply, f),
           chains: intChains,
         };
       }
@@ -426,11 +440,14 @@ function smoothPGCacheData(data: PGCacheData): PGCacheData {
   return result;
 }
 
-function processRecordsToPGCache(records: any[]): PGCacheData {
+export function processRecordsToPGCache(records: any[]): PGCacheData {
   const data: PGCacheData = {};
+  // totalSupply: null = unknown, 0 = real zero. Chains with mcap > 0 but
+  // missing from supplyObj stay null (data gap, not real zero).
+  const newChainEntry = () => ({ onChainMcap: 0, activeMcap: 0, defiActiveTvl: 0, totalSupply: null as number | null });
   for (const record of records) {
-    // DB functions already parse JSON fields
-    const { mcap: mcapObj, activemcap: activemcapObj, defiactivetvl: defitvlObj } = record;
+    const { mcap: mcapObj, activemcap: activemcapObj, defiactivetvl: defitvlObj, totalsupply: totalsupplyObj } = record;
+    const supplyObj = totalsupplyObj || {};
 
     const chains: PGCacheRecord['chains'] = {};
     let totalOnChainMcap = 0;
@@ -438,34 +455,72 @@ function processRecordsToPGCache(records: any[]): PGCacheData {
     let totalDefiActiveTvl = 0;
 
     for (const [chainKey, value] of Object.entries(toObjectMap(mcapObj))) {
-      if (!chains[chainKey]) chains[chainKey] = { onChainMcap: 0, activeMcap: 0, defiActiveTvl: 0 };
+      if (!chains[chainKey]) chains[chainKey] = newChainEntry();
       const numValue = Number(value) || 0;
       chains[chainKey].onChainMcap = numValue;
       totalOnChainMcap += numValue;
     }
 
     for (const [chainKey, value] of Object.entries(toObjectMap(activemcapObj))) {
-      if (!chains[chainKey]) chains[chainKey] = { onChainMcap: 0, activeMcap: 0, defiActiveTvl: 0 };
+      if (!chains[chainKey]) chains[chainKey] = newChainEntry();
       const numValue = Number(value) || 0;
       chains[chainKey].activeMcap = numValue;
       totalActiveMcap += numValue;
     }
 
     for (const [chainKey, protocols] of Object.entries(toObjectMap(defitvlObj))) {
-      if (!chains[chainKey]) chains[chainKey] = { onChainMcap: 0, activeMcap: 0, defiActiveTvl: 0 };
+      if (!chains[chainKey]) chains[chainKey] = newChainEntry();
       const numValue = sumObjectValues(protocols);
       chains[chainKey].defiActiveTvl = numValue;
       totalDefiActiveTvl += numValue;
     }
 
+    for (const [chainKey, value] of Object.entries(supplyObj)) {
+      if (!chains[chainKey]) chains[chainKey] = newChainEntry();
+      chains[chainKey].totalSupply = Number(value) || 0;
+    }
+
+    // For chains with mcap entry but no supplyObj entry: 0 mcap means real zero, else unknown.
+    for (const chainKey of Object.keys(chains)) {
+      if (chains[chainKey].totalSupply !== null) continue;
+      if (chains[chainKey].onChainMcap === 0) chains[chainKey].totalSupply = 0;
+    }
+
+    // Aggregate = sum of known chains. Null only when every chain is unknown but mcap > 0.
+    let totalSupplyAgg: number | null = 0;
+    let anyKnown = false;
+    for (const c of Object.values(chains)) {
+      if (c.totalSupply === null) continue;
+      anyKnown = true;
+      totalSupplyAgg += c.totalSupply;
+    }
+    if (!anyKnown && totalOnChainMcap > 0) totalSupplyAgg = null;
+
     data[record.timestamp] = {
       onChainMcap: totalOnChainMcap,
       activeMcap: totalActiveMcap,
       defiActiveTvl: totalDefiActiveTvl,
+      totalSupply: totalSupplyAgg,
       chains,
     };
   }
   return data;
+}
+
+// Pre-compute the daily net-flow series for one id from already-fetched
+// chain-level daily records. Mirrors the logic the /flows/:id route used to
+// run on every request.
+export function computeFlowsFromChainRecords(records: any[]) {
+  const flowRows: FlowRow[] = records.map((r) => ({
+    timestamp: r.timestamp,
+    mcap: r.mcap || {},
+    totalsupply: r.totalsupply || {},
+  }));
+  return computeFlowSeries(flowRows, getChainLabelFromKey);
+}
+
+async function storeFlowsForIdFromChainRecords(id: string, records: any[]): Promise<void> {
+  await storeFlowsForId(id, computeFlowsFromChainRecords(records));
 }
 
 function toObjectMap(value: any): Record<string, any> {
@@ -568,9 +623,10 @@ async function generatePGCache(): Promise<{ updatedIds: number }> {
       const newData = processRecordsToPGCache(idRecords);
       const incrementallyMerged = mergePGCacheData(existingCache, newData);
       const incrementallyMergedRows = getPGCacheRowCount(incrementallyMerged);
+      // Flows depend on the full per-id history; refetch and recompute.
+      const fullRecords = await fetchDailyRecordsWithChainsForIdPG(id);
 
       if (shouldRebuild) {
-        const fullRecords = await fetchDailyRecordsWithChainsForIdPG(id);
         const fullData = processRecordsToPGCache(fullRecords);
         const rebuiltRows = getPGCacheRowCount(fullData);
         await storePGCacheForId(id, smoothPGCacheData(fullData));
@@ -581,13 +637,14 @@ async function generatePGCache(): Promise<{ updatedIds: number }> {
             reason: existingCache ? 'suspiciously small existing pg-cache' : 'missing existing pg-cache',
             existingRows,
             rebuiltRows,
-            incrementalRows: idRecords.length,
+            incrementalRows: incrementallyMergedRows,
             ...getRecordRange(fullRecords),
           });
         }
       } else {
         await storePGCacheForId(id, smoothPGCacheData(incrementallyMerged));
       }
+      await storeFlowsForIdFromChainRecords(id, fullRecords);
       updatedIds++;
     }
   } else {
@@ -604,6 +661,7 @@ async function generatePGCache(): Promise<{ updatedIds: number }> {
 
         const data = processRecordsToPGCache(records);
         await storePGCacheForId(id, smoothPGCacheData(data));
+        await storeFlowsForIdFromChainRecords(id, records);
         updatedIds++;
 
         if ((i + 1) % 100 === 0) {
@@ -1500,11 +1558,15 @@ async function main() {
   }
 }
 
-main()
-  .then(() => process.exit(0))
-  .catch((error) => {
-    console.error('Fatal error:', error);
-    process.exit(1);
-  });
+// Only auto-run when invoked directly (e.g. `ts-node defi/src/rwa/cron.ts`).
+// This guard keeps importing the module from tests / scripts side-effect-free.
+if (require.main === module) {
+  main()
+    .then(() => process.exit(0))
+    .catch((error) => {
+      console.error('Fatal error:', error);
+      process.exit(1);
+    });
+}
 
 // Run with: npx ts-node defi/src/rwa/cron.ts

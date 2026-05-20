@@ -922,6 +922,9 @@ const data6: Protocol[] = [
     twitter: "flyingtulip_",
     listedAt: 1769459609,
     parentProtocol: "parent#flying-tulip",
+    tokensExcludedFromParent: {
+      Sonic: ["FTUSD"], // already counting all backing in flying-tulip-ftusd
+    },
     dimensions: {
       fees: "flying-tulip-lend"
     }
@@ -988,6 +991,7 @@ const data6: Protocol[] = [
     twitter: "wallet_tg",
     dimensions: {
       fees: "telegram-wallet-perps",
+      derivatives: "telegram-wallet-perps",
     }
   },
   {
@@ -1115,6 +1119,9 @@ const data6: Protocol[] = [
     twitter: "flyingtulip_",
     listedAt: 1777298400,
     parentProtocol: "parent#flying-tulip",
+    tokensExcludedFromParent: {
+      Sonic: ["FTDNS-USDC"], // backing is counted in flying-tulip-lend
+    },
     dimensions: {
       fees: "flying-tulip-ftusd"
     }
@@ -2697,8 +2704,8 @@ const data6: Protocol[] = [
     name: "FaroSwap",
     address: null,
     symbol: "-",
-    url: " ", // pending to add url https://faroswap.xyz/
-    description: "FaroSwap is a decentralized exchange on Base that allows users to trade tokens and NFTs with low fees and high liquidity",
+    url: "https://faroswap.xyz/",
+    description: " native AMM&PMM DEX on Pharos, powering RWA-Fi with precision and depth",
     chain: "Pharos",
     logo: `${baseIconsUrl}/faroswap.jpg`,
     audits: "0",
@@ -3659,6 +3666,130 @@ const data6: Protocol[] = [
     twitter: "TopazDex",
     audit_links: ["https://github.com/shieldify-security/audits-portfolio/blob/main/reports/Topaz-Dex-Security-Review.pdf"],
     listedAt: 1779213624
+  },
+  {
+    id: "7883",
+    name: "Sky Money",
+    address: "0x56072c95faa701256059aa122697b133aded9279",
+    symbol: "SKY",
+    url: "https://app.sky.money/?network=ethereum&widget=vaults",
+    description: "Sky Money is a Morpho vault curator that manages lending vault allocations, with TVL tracking assets deposited into vaults curated by Sky.",
+    chain: "Ethereum",
+    logo: `${baseIconsUrl}/sky-money.jpg`,
+    audits: "0",
+    gecko_id: null,
+    cmcId: null,
+    category: "Risk Curators",
+    chains: ["Ethereum"],
+    module: "sky-money/index.js",
+    twitter: "SkyMoney",
+    parentProtocol: "parent#maker",
+    listedAt: 1779217533
+  },
+  {
+    id: "7884",
+    name: "DotFlat",
+    address: null,
+    symbol: "-",
+    url: " ", // pending to add url https://dotflat.io
+    description: "Dotflat is a CDP protocol where users mint DFC against ETH collateral, with DFC designed to track the purchasing power of a commodity basket rather than stay fixed to USD.",
+    chain: "Ethereum",
+    logo: `${baseIconsUrl}/dotflat.jpg`,
+    audits: "0",
+    gecko_id: null,
+    cmcId: null,
+    category: "CDP",
+    chains: ["Ethereum"],
+    module: "dotflat/index.js",
+    twitter: "dotflat_io",
+    github: ["nagor2"],
+    listedAt: 1779218054
+  },
+  {
+    id: "7885",
+    name: "OpenFi",
+    address: null,
+    symbol: "-",
+    url: " ", // pending to add url https://open-fi.xyz/
+    description: "OpenFi is a lending protocol bridging Real World Assets to DeFi, allowing users to supply and borrow RWA-backed and crypto assets.",
+    chain: "Pharos",
+    logo: `${baseIconsUrl}/openfi.jpg`,
+    audits: "0",
+    gecko_id: null,
+    cmcId: null,
+    category: "RWA Lending",
+    chains: ["Pharos", "Binance"],
+    module: "openfi/index.js",
+    forkedFromIds: ["1599"],
+    twitter: "open_fi_",
+    github: ["OpenFi-Lending"],
+    listedAt: 1779218387
+  },
+  {
+    id: "7886",
+    name: "Preddy",
+    address: null,
+    symbol: "-",
+    url: " ", // pending to add url https://preddy.trade/events
+    description:
+      "Preddy is a prediction platform powered by Polymarket",
+    chain: "Polygon",
+    logo: `${baseIconsUrl}/preddy.jpg`,
+    audits: "0",
+    gecko_id: null,
+    cmcId: null,
+    tags: ["Polymarket Builder"],
+    chains: ["Polygon"],
+    module: "dummy.js",
+    twitter: "preddytrade",
+    dimensions: {
+      fees: "preddy-trade",
+      dexs: "preddy-trade",
+    },
+  },
+  {
+    id: "7887",
+    name: "Polytrader",
+    address: null,
+    symbol: "-",
+    url: "https://www.polytrader.ai/",
+    description:
+      "Polytrader is a prediction platform powered by Polymarket",
+    chain: "Polygon",
+    logo: `${baseIconsUrl}/polytrader.jpg`,
+    audits: "0",
+    gecko_id: null,
+    cmcId: null,
+    tags: ["Polymarket Builder"],
+    chains: ["Polygon"],
+    module: "dummy.js",
+    twitter: "polytraderAI",
+    dimensions: {
+      fees: "polytrader-app",
+      dexs: "polytrader-app",
+    },
+  },
+  {
+    id: "7888",
+    name: "Kiyotaka Prediction Market",
+    address: null,
+    symbol: "-",
+    url: "https://kiyotaka.ai/",
+    description:
+      "Kiyotaka Prediction Market is a prediction platform powered by Polymarket",
+    chain: "Polygon",
+    logo: `${baseIconsUrl}/kiyotaka-prediction-market.jpg`,
+    audits: "0",
+    gecko_id: null,
+    cmcId: null,
+    tags: ["Polymarket Builder"],
+    chains: ["Polygon"],
+    module: "dummy.js",
+    twitter: "kiyotaka_ai",
+    dimensions: {
+      fees: "kiyotaka",
+      dexs: "kiyotaka",
+    },
   },
 ];
 export default data6;

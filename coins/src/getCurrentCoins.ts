@@ -14,6 +14,17 @@ const isFresh = (timestamp: number, searchWidth: number) => {
 
 const defaultSearchWidth = quantisePeriod("12h");
 
+export function currentPricesExpiresHeaders() {
+  // Coingecko price refreshes happen each 5 minutes, set expiration at the :00; :05, :10, :15... mark, with 20 seconds extra
+  const date = new Date();
+  const minutes = date.getMinutes();
+  date.setMinutes(minutes + 5 - (minutes % 5));
+  date.setSeconds(20);
+  return {
+    Expires: date.toUTCString(),
+  };
+}
+
 export async function getCurrentCoins({
   response = {},
   searchWidth = defaultSearchWidth,
@@ -76,19 +87,12 @@ const handler = async (event: any): Promise<IResponse> => {
   );
   const response = await getCurrentCoins({ requestedCoins, searchWidth });
 
-  // Coingecko price refreshes happen each 5 minutes, set expiration at the :00; :05, :10, :15... mark, with 20 seconds extra
-  const date = new Date();
-  const minutes = date.getMinutes();
-  date.setMinutes(minutes + 5 - (minutes % 5));
-  date.setSeconds(20);
   return successResponse(
     {
       coins: response,
     },
     undefined,
-    {
-      Expires: date.toUTCString(),
-    },
+    currentPricesExpiresHeaders(),
   );
 };
 
