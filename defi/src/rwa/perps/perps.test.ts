@@ -47,6 +47,13 @@ import {
 } from "./platforms/adapters/hyperliquid";
 import { parseApexMarkets, type ApexContract, type ApexTicker, type ApexUiTicker } from "./platforms/adapters/apex";
 import { isGtradeRwaGroupName, toGtradePythPairKey } from "./platforms/adapters/gtrade";
+import {
+  parseVariationalMarkets,
+  VARIATIONAL_MAX_LEVERAGE,
+  VARIATIONAL_MAKER_FEE,
+  VARIATIONAL_TAKER_FEE,
+  type VariationalListing,
+} from "./platforms/adapters/variational";
 import { getCsvData } from "../spreadsheet";
 
 // ── utils.ts ──────────────────────────────────────────────────────────────────
@@ -581,6 +588,60 @@ describe("parseApexMarkets", () => {
 
   it("skips enabled contracts when no matching ticker is present", () => {
     expect(parseApexMarkets([contracts[0]], [])).toEqual([]);
+  });
+});
+
+// ── variational.ts parsers ───────────────────────────────────────────────────
+
+describe("parseVariationalMarkets", () => {
+  const listings: VariationalListing[] = [
+    {
+      ticker: "XAU",
+      name: "Gold",
+      mark_price: "4497.97",
+      volume_24h: "23277904.91",
+      open_interest: {
+        long_open_interest: "3000000.5",
+        short_open_interest: "2693491.25",
+      },
+      funding_rate: "0.084694",
+      funding_interval_s: 14400,
+      base_spread_bps: "6.43",
+      quotes: {
+        base: { bid: "4497.50", ask: "4498.50" },
+      },
+    },
+    {
+      ticker: "BTC",
+      name: "Bitcoin",
+      mark_price: "77308.63",
+      volume_24h: "318320282.07",
+      open_interest: {
+        long_open_interest: "100",
+        short_open_interest: "200",
+      },
+    },
+  ];
+
+  it("keeps only Variational RWA tickers", () => {
+    const parsed = parseVariationalMarkets(listings);
+    expect(parsed).toHaveLength(1);
+    expect(parsed[0].contract).toBe("variational:XAU");
+    expect(parsed[0].venue).toBe("variational");
+    expect(parsed[0].platform).toBe("variational");
+  });
+
+  it("maps notional market fields from the stats listing", () => {
+    const [xau] = parseVariationalMarkets(listings);
+    expect(xau.openInterest).toBe(11386983.5);
+    expect(xau.volume24h).toBe(23277904.91);
+    expect(xau.markPx).toBe(4497.97);
+    expect(xau.oraclePx).toBe(0);
+    expect(xau.midPx).toBe(4498);
+    expect(xau.fundingRate).toBeCloseTo(0.084694 / 2190);
+    expect(xau.maxLeverage).toBe(VARIATIONAL_MAX_LEVERAGE);
+    expect(xau.makerFeeRate).toBe(VARIATIONAL_MAKER_FEE);
+    expect(xau.takerFeeRate).toBe(VARIATIONAL_TAKER_FEE);
   });
 });
 
