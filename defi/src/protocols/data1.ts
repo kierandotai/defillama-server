@@ -1552,6 +1552,7 @@ const data: Protocol[] = [
     twitter: "btdotfinance",
     audit_links: ["https://github.com/btdotfinance/bt-finance/tree/master/audits"],
     github: ["btdotfinance"],
+    deadUrl: true,
   },
   {
     id: "175",
@@ -2887,6 +2888,7 @@ const data: Protocol[] = [
     module: "swipeswap.js",
     twitter: "SolarNetwork",
     audit_links: ["https://www.certik.org/projects/swipe"],
+    deadUrl: true,
   },
   {
     id: "238",
@@ -3160,6 +3162,7 @@ const data: Protocol[] = [
     module: "basketdao/index.js",
     twitter: "BasketDAOOrg",
     audit_links: ["https://github.com/basketdao/contracts/tree/main/audits"],
+    deadUrl: true,
   },
   {
     id: "251", // previously Mimo Protocol
@@ -4580,6 +4583,7 @@ const data: Protocol[] = [
     oraclesBreakdown: [{ name: "Pyth", type: "Primary", proof: [] }],
     openSource: false,
     github: ["sol-farm"],
+    deadUrl: true,
   },
   {
     id: "316",
@@ -5861,6 +5865,7 @@ const data: Protocol[] = [
     twitter: "KokomoSwap",
     forkedFromIds: ["2197"],
     audit_links: ["https://docs.kokomoswap.io/risk-and-security-1/audit"],
+    deadUrl: true,
   },
   {
     id: "372",
@@ -7949,6 +7954,7 @@ The eWIT token is a custodial, wrapped version of the Witnet coin managed by the
     twitter: "groprotocol",
     audit_links: ["https://docs.gro.xyz/gro-docs/security/audits"],
     governanceID: ["snapshot:gro.xyz"],
+    deadUrl: true,
   },
   {
     id: "464",
@@ -7968,6 +7974,7 @@ The eWIT token is a custodial, wrapped version of the Witnet coin managed by the
     twitter: "beta_finance",
     audit_links: ["https://betafinance.gitbook.io/betafinance/security-and-audits"],
     parentProtocol: "parent#beta-finance",
+    deadUrl: true,
   },
   {
     id: "465",
@@ -8131,7 +8138,8 @@ The eWIT token is a custodial, wrapped version of the Witnet coin managed by the
     dimensions: {
       fees: "complus-network",
       dexs: "complus-network"
-    }
+    },
+    deadUrl: true,
   },
   {
     id: "472",
@@ -8765,7 +8773,8 @@ The eWIT token is a custodial, wrapped version of the Witnet coin managed by the
     parentProtocol: "parent#polycat-finance",
     dimensions: {
       dexs: "polycat"
-    }
+    },
+    deadUrl: true,
   },
   {
     id: "500",
@@ -9398,7 +9407,8 @@ The eWIT token is a custodial, wrapped version of the Witnet coin managed by the
     github: ["centfinance"],
     dimensions: {
       dexs: "symmetric"
-    }
+    },
+    deadUrl: true,
   },
   {
     id: "529",
@@ -11027,6 +11037,7 @@ The eWIT token is a custodial, wrapped version of the Witnet coin managed by the
     twitter: "bakery_swap",
     audit_links: ["https://www.certik.org/projects/bakeryswap"],
     forkedFromIds: ["2197"],
+    deadUrl: true,
   },
   /*
   {
@@ -11347,6 +11358,7 @@ The eWIT token is a custodial, wrapped version of the Witnet coin managed by the
     twitter: "boggedfinance",
     audit_links: ["https://static.bogged.finance/audit.pdf"],
     github: ["BoggedFinance"],
+    deadUrl: true,
   },
   {
     id: "618",
@@ -16819,7 +16831,8 @@ The eWIT token is a custodial, wrapped version of the Witnet coin managed by the
     cmcId: "11678",
     tags: ["AMM"],
     chains: ["Stellar"],
-    module: "lumenswap/index.js",
+    //module: "lumenswap/index.js", removed tvl in favor of Stellar AMM
+    module: "dummy.js",
     twitter: "lumenswap",
     listedAt: 1637392233,
     github: ["lumenswap"],
@@ -17073,7 +17086,8 @@ The eWIT token is a custodial, wrapped version of the Witnet coin managed by the
     previousNames: ["Paraswap"],
     address: "0x4e107a0000db66f0e9fd2039288bf811dd1f9c74",
     symbol: "VLR",
-    url: "https://app.velora.xyz/", // https://x.com/VeloraDEX/status/2052715943621439728 problems with old url. changed once its fixed - was https://www.velora.xyz
+    url: "https://app.velora.xyz/?ref=MHg3OThmRjFlNkQ3QUZkMjhjMzMzZUU2ZUJlMDMxMjVkMzBlYzZlRjEw",
+    referralUrl: "https://app.velora.xyz/?ref=MHg3OThmRjFlNkQ3QUZkMjhjMzMzZUU2ZUJlMDMxMjVkMzBlYzZlRjEw", // https://x.com/VeloraDEX/status/2052715943621439728 problems with old url. changed once its fixed - was https://www.velora.xyz
     description:
       "Velora is the most comprehensive and flexible trading protocol for Decentralized Finance (DeFi). We use decentralized intents to provide advanced features such as limit orders, super hooks, and chain-abstracted swaps.",
     chain: "Ethereum",
@@ -23229,7 +23243,8 @@ The eWIT token is a custodial, wrapped version of the Witnet coin managed by the
     listedAt: 1641193239,
     dimensions: {
       dexs: "exinswap"
-    }
+    },
+    deadUrl: true,
   },
   {
     id: "1180",
@@ -23674,6 +23689,7 @@ The eWIT token is a custodial, wrapped version of the Witnet coin managed by the
     module: "tenet/index.js",
     twitter: "TenetFarm",
     listedAt: 1641421756,
+    deadUrl: true,
   },
   {
     id: "1201",
@@ -26566,6 +26582,7 @@ The eWIT token is a custodial, wrapped version of the Witnet coin managed by the
     twitter: "ShiroTokens",
     forkedFromIds: ["2197"],
     listedAt: 1643486991,
+    deadUrl: true,
   },
   {
     id: "1336",
@@ -27158,6 +27175,7 @@ The eWIT token is a custodial, wrapped version of the Witnet coin managed by the
     audit_links: ["https://github.com/TechRate/Smart-Contract-Audits/blob/main/2018-21%20N-Z/Oni%20MasterChef.pdf"],
     forkedFromIds: ["2197"],
     listedAt: 1644152759,
+    deadUrl: true,
   },
   {
     id: "1364",

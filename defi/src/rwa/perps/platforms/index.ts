@@ -10,6 +10,7 @@ import { extendedAdapter } from "./adapters/extended";
 import { lighterAdapter } from "./adapters/lighter";
 import { edgexAdapter } from "./adapters/edgex";
 import { asterAdapter } from "./adapters/aster";
+import { apexAdapter } from "./adapters/apex";
 import { gmtradeAdapter } from "./adapters/gmtrade";
 
 /** All implemented adapters — used by preview tooling and tests. */
@@ -23,6 +24,7 @@ const ALL_ADAPTERS: PlatformAdapter[] = [
   lighterAdapter,
   edgexAdapter,
   asterAdapter,
+  apexAdapter,
   gmtradeAdapter,
 ];
 
@@ -36,6 +38,7 @@ const PUBLISHED_ADAPTERS: PlatformAdapter[] = [
   lighterAdapter,
   edgexAdapter,
   asterAdapter,
+  apexAdapter,
   gmtradeAdapter,
 ];
 

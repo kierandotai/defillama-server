@@ -51,12 +51,47 @@ const OVERVIEW_BREAKDOWNS_BY_TARGET = {
 
 function getMetadataMap(metadata: MetadataRecord[]) {
   const metadataMap = new Map<string, MetadataPayload>();
+  const strippedAliases = new Map<string, Set<MetadataPayload>>();
+
+  const addMetadataAlias = (key: unknown, data: MetadataPayload) => {
+    const normalizedKey = toStringOrNull(key)?.toLowerCase();
+    if (!normalizedKey || metadataMap.has(normalizedKey)) return;
+    metadataMap.set(normalizedKey, data);
+
+    const colonIdx = normalizedKey.indexOf(":");
+    const afterColon = colonIdx >= 0 ? colonIdx + 1 : 0;
+    const hyphenIdx = normalizedKey.indexOf("-", afterColon);
+    if (hyphenIdx > afterColon) {
+      const strippedKey = normalizedKey.substring(0, hyphenIdx);
+      const candidates = strippedAliases.get(strippedKey) ?? new Set<MetadataPayload>();
+      candidates.add(data);
+      strippedAliases.set(strippedKey, candidates);
+    }
+  };
+
   for (const entry of metadata) {
     if (entry?.id) {
-      metadataMap.set(entry.id, entry.data ?? {});
+      const data = entry.data ?? {};
+      addMetadataAlias(entry.id, data);
+      addMetadataAlias(data.contract, data);
     }
   }
+
+  for (const [strippedKey, candidates] of strippedAliases) {
+    if (candidates.size === 1 && !metadataMap.has(strippedKey)) {
+      const candidate = candidates.values().next().value;
+      if (candidate) metadataMap.set(strippedKey, candidate);
+    }
+  }
+
   return metadataMap;
+}
+
+function getHistoricalRecordMetadata(
+  record: DailyRecord,
+  metadataMap: Map<string, MetadataPayload>
+): MetadataPayload | null {
+  return metadataMap.get(String(record.id).toLowerCase()) ?? null;
 }
 
 function normalizeCategoryList(value: unknown): string[] {
@@ -80,8 +115,7 @@ function getAssetGroupLabel(row: Pick<AggregateHistoricalRow, "referenceAssetGro
   return normalizePerpsAssetGroup(row.referenceAssetGroup);
 }
 
-function buildBaseHistoricalRow(record: DailyRecord, metadataMap: Map<string, MetadataPayload>): AggregateHistoricalRow {
-  const metadata = metadataMap.get(record.id) ?? {};
+function buildBaseHistoricalRow(record: DailyRecord, metadata: MetadataPayload): AggregateHistoricalRow {
   return {
     timestamp: record.timestamp,
     id: record.id,
@@ -98,7 +132,15 @@ function buildBaseHistoricalRow(record: DailyRecord, metadataMap: Map<string, Me
 
 function buildHistoricalRows(dailyRecords: DailyRecord[], metadata: MetadataRecord[]): AggregateHistoricalRow[] {
   const metadataMap = getMetadataMap(metadata);
-  return dailyRecords.map((record) => buildBaseHistoricalRow(record, metadataMap));
+  const rows: AggregateHistoricalRow[] = [];
+
+  for (const record of dailyRecords) {
+    const recordMetadata = getHistoricalRecordMetadata(record, metadataMap);
+    if (!recordMetadata) continue;
+    rows.push(buildBaseHistoricalRow(record, recordMetadata));
+  }
+
+  return rows;
 }
 
 function sortHistoricalRows(rows: AggregateHistoricalRow[]) {

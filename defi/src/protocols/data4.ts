@@ -276,7 +276,8 @@ const data4: Protocol[] = [
       fees: "satoshi-perps",
       derivatives: "satoshi-perps",
       "open-interest": "satoshi-perps"
-    }
+    },
+    deadUrl: true,
   },
   {
     id: "5572",
@@ -963,7 +964,7 @@ const data4: Protocol[] = [
     name: "Creator Bid",
     address: null,
     symbol: "-",
-    url: "https://creator.bid/agents",
+    url: "https://creator.bid/",
     description: "Create and tokenize AI agents , AI Launchpad on base",
     chain: "Base",
     logo: `${baseIconsUrl}/creator-bid.jpg`,
@@ -1086,6 +1087,7 @@ const data4: Protocol[] = [
     twitter: "planetmobiusfun",
     github: ["planetmobius"],
     listedAt: 1736387601,
+    deadUrl: true,
   },
   {
     id: "5606",
@@ -1201,36 +1203,20 @@ const data4: Protocol[] = [
     url: "https://app.silo.finance",
     description: "Silo Finance creates permissionless and risk-isolated lending markets.",
     chain: "Arbitrum",
-    logo: `${baseIconsUrl}/silo-finance.png`,
+    logo: `${baseIconsUrl}/silo-v2.jpg`,
     audits: "2",
     gecko_id: null,
     cmcId: null,
     category: "Lending",
     chains: ["Arbitrum", "Sonic", "Avalanche"],
     oraclesBreakdown: [
-      {
-        name: "RedStone",
-        type: "Primary",
-        proof: ["https://app.silo.finance", "https://github.com/DefiLlama/defillama-server/pull/9560"],
-        chains: [
-          {chain: "Sonic"},
-          {chain: "Ethereum"}
-        ],
+      {name: "RedStone",type: "Primary",proof: ["https://app.silo.finance", "https://github.com/DefiLlama/defillama-server/pull/9560"],
+        chains: [{chain: "Sonic"},{chain: "Ethereum"}],
       },
-      {
-        name: "eOracle",
-        type: "Primary",
-        proof: ["https://app.silo.finance/markets/avalanche/xbtc-btcb-130?action=deposit&token=0", "https://app.silo.finance/markets/avalanche/xusd-usdc-129?action=deposit&token=0", "https://app.silo.finance/markets/arbitrum/xusd-usdc-146?action=deposit", "https://app.silo.finance/markets/arbitrum/xusd-usdc-146?action=deposit"],
-        chains: [
-          {chain: "Avalanche"},
-          {chain: "Arbitrum"},
-        ],
+      {name: "eOracle",type: "Primary",proof: ["https://app.silo.finance/markets/avalanche/xbtc-btcb-130?action=deposit&token=0", "https://app.silo.finance/markets/avalanche/xusd-usdc-129?action=deposit&token=0", "https://app.silo.finance/markets/arbitrum/xusd-usdc-146?action=deposit", "https://app.silo.finance/markets/arbitrum/xusd-usdc-146?action=deposit"],
+        chains: [{chain: "Avalanche"},{chain: "Arbitrum"}],
       },
-       {
-        name: "Chainlink",
-        type: "Secondary",
-        proof: ["https://github.com/DefiLlama/defillama-server/pull/9388", "https://silopedia.silo.finance/oracles"],
-      },
+       {name: "Chainlink",type: "Secondary",proof: ["https://github.com/DefiLlama/defillama-server/pull/9388", "https://silopedia.silo.finance/oracles"],},
     ],
     module: "silo-v2/index.js",
     twitter: "SiloFinance",
@@ -2182,7 +2168,8 @@ const data4: Protocol[] = [
     twitter: "VECTORDOTFUN",
     dimensions: {
       fees: "vectorfun"
-    }
+    },
+    deadUrl: true,
   },
   {
     id: "5654",
@@ -2820,6 +2807,7 @@ const data4: Protocol[] = [
     twitter: "raccoonswap",
     forkedFromIds: ["2197"],
     listedAt: 1738079995,
+    deadUrl: true,
   },
   {
     id: "5682",
@@ -5232,6 +5220,9 @@ const data4: Protocol[] = [
     twitter: "doppler_fi",
     github: ["girin-app"],
     listedAt: 1739555054,
+    dimensions: {
+      fees: "doppler-finance"
+    }
   },
   {
     id: "5787",
@@ -5239,7 +5230,7 @@ const data4: Protocol[] = [
     address: null,
     symbol: "-",
     assetToken: "stIP",
-    url: "https://www.metapool.app/es/stake/?token=ip",
+    url: "https://main.metapool.app/",
     description: "Liquid staking protocol: Stake IP and receive stIP.",
     chain: "Story",
     logo: `${baseIconsUrl}/meta-pool-stip.png`,
@@ -6996,7 +6987,8 @@ const data4: Protocol[] = [
     listedAt: 1741119943,
     dimensions: {
       fees: "hyperyield"
-    }
+    },
+    deadUrl: true,
   },
   {
     id: "5863",
@@ -7242,6 +7234,7 @@ const data4: Protocol[] = [
     module: "unihedge/index.js",
     twitter: "UnihedgeOrg",
     listedAt: 1741358597,
+    deadUrl: true,
   },
   {
     id: "5874",
@@ -11319,7 +11312,8 @@ const data4: Protocol[] = [
     name: "HypurrFi Isolated",
     address: null,
     symbol: "-",
-    url: "https://hypurrfi.com/points?af=defillama",
+    //url: "https://hypurrfi.com/points?af=defillama",
+    url: "https://hypurrfi.com/",
     description: `HypurrFi's isolated lending markets`,
     chain: "Hyperliquid L1",
     logo: `${baseIconsUrl}/hypurrfi-isolated.jpg`,
@@ -12954,6 +12948,7 @@ const data4: Protocol[] = [
       "https://github.com/quasar-finance/babydex/blob/main/Tower_BabyDEX%20_Smart_Contract_Security_Assessment_Report_Halborn.pdf",
     ],
     listedAt: 1746089713,
+    deadUrl: true,
   },
   {
     id: "6124",
@@ -13667,6 +13662,7 @@ const data4: Protocol[] = [
     twitter: "beracana",
     audit_links: ["https://app.beracana.com/beracana-audit.pdf"],
     listedAt: 1746799138,
+    deadUrl: true,
   },
   {
     id: "6159",
@@ -15379,7 +15375,7 @@ const data4: Protocol[] = [
     name: "NEAR Intents",
     address: null,
     symbol: "-",
-    url: "https://app.near-intents.org/",
+    url: "https://near.com/",
     description: `NEAR Intents are a new type of transaction that allow information, requests, assets, and actions to be exchanged between AI agents, services, and end users`,
     chain: "Near",
     logo: `${baseIconsUrl}/near-intents.jpg`,
@@ -16373,7 +16369,7 @@ const data4: Protocol[] = [
     id: "6267",
     name: "Stellar DEX",
     address: null,
-    symbol: "XLM",
+    symbol: "-",
     url: "https://developers.stellar.org/docs/learn/fundamentals/liquidity-on-stellar-sdex-liquidity-pools",
     description:
       "The Stellar network acts as a decentralized distributed exchange that allows users to trade and convert assets with the network's Offer operations",
@@ -16414,6 +16410,7 @@ const data4: Protocol[] = [
       },
     ],
     listedAt: 1749019047,
+    deadUrl: true,
   },
   {
     id: "6269",
@@ -18371,6 +18368,7 @@ const data4: Protocol[] = [
     module: "ManaSwap/index.js",
     twitter: "manadotwin",
     listedAt: 1750885251,
+    deadUrl: true,
   },
   {
     id: "6352",
@@ -18625,7 +18623,7 @@ const data4: Protocol[] = [
     twitter: "crovegasfun",
     listedAt: 1751045489,
   },
-  {  
+  {
     id: "6364",
     name: "Mineral Vault",
     address: null,
@@ -22185,6 +22183,7 @@ const data4: Protocol[] = [
     module: "warpfinance/index.js",
     twitter: "WarpEvm",
     listedAt: 1754325949,
+    deadUrl: true,
   },
   {
     id: "6519",
@@ -24212,6 +24211,7 @@ const data4: Protocol[] = [
     forkedFromIds: ["2197"],
     twitter: "Onion_Fi",
     listedAt: 1755705197,
+    deadUrl: true,
   },
   {
     id: "6610",
@@ -27459,7 +27459,7 @@ const data4: Protocol[] = [
     symbol: "-",
     url: "https://www.vishwalab.com/",
     description:
-      "Vishwa is the verification layer for autonomous capital. As financial execution becomes agent-driven, capital must prove solvency, authorization, and policy compliance before transactions occur. Vishwa uses zero-knowledge proofs to enforce these constraints before execution — agents must cryptographically prove they are authorized and solvent before funds move. This allows institutions to deploy capital programmatically across execution venues while maintaining enforceable constraints. No proof, no execution.",
+      "Vishwa is agent-native banking infrastructure for autonomous capital, built around a pre-execution control layer that verifies and enforces solvency, authorization, policy, and execution constraints before capital moves across chains and execution venues.",
     chain: "Bitcoin",
     logo: `${baseIconsUrl}/vishwa.jpg`,
     audits: "2",
@@ -29783,7 +29783,8 @@ const data4: Protocol[] = [
     dimensions: {
       fees: "punk.coffee",
       dexs: "punk.coffee"
-    }
+    },
+    deadUrl: true,
   },
   {
     id: "6861",

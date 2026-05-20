@@ -19,6 +19,7 @@ function getBaseUrl(url: string, category: string): string {
 // Helper to get Pro API base URL with API key
 function getProApiBaseUrl(): string {
   const proUrl = process.env.BETA_PRO_API_URL || 'https://pro-api.llama.fi';
+  // console.log('proUrl', proUrl);
   if (proUrl.includes('/api-key/')) {
     return proUrl;
   }
@@ -65,9 +66,14 @@ export const TVL = {
   HISTORICAL_CHAIN_TVL: '/v2/historicalChainTvl',
   HISTORICAL_CHAIN_TVL_BY_CHAIN: (chain: string) => `/v2/historicalChainTvl/${chain}`,
   CHAINS_V2: '/v2/chains',
-  CHAIN_ASSETS: '/chainAssets',
-  TOKEN_PROTOCOLS: (symbol: string) => `/tokenProtocols/${symbol}`,
-  INFLOWS: (protocol: string, timestamp: number) => `/inflows/${protocol}/${timestamp}`,
+} as const;
+
+// Pro-only TVL endpoints (free api.llama.fi returns 402 for these)
+export const TVL_PRO = {
+  BASE_URL: getProApiBaseUrl(),
+  CHAIN_ASSETS: '/api/chainAssets',
+  TOKEN_PROTOCOLS: (symbol: string) => `/api/tokenProtocols/${symbol}`,
+  INFLOWS: (protocol: string, timestamp: number) => `/api/inflows/${protocol}/${timestamp}`,
 } as const;
 
 export const TVL_V2 = {
@@ -103,6 +109,7 @@ export const COINS = {
   PERCENTAGE: (coins: string) => `/percentage/${coins}`,
   PRICES_FIRST: (coins: string) => `/prices/first/${coins}`,
   BLOCK: (chain: string, timestamp: number) => `/block/${chain}/${timestamp}`,
+  BATCH_HISTORICAL: '/batchHistorical',
 } as const;
 
 export const VOLUMES = {
@@ -239,6 +246,7 @@ export const RWA = {
 
 export const endpoints = {
   TVL,
+  TVL_PRO,
   STABLECOINS,
   YIELDS,
   COINS,

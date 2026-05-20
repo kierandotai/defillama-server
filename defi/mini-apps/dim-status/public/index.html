@@ -255,6 +255,7 @@
   <button class="top-tab" data-top="dimensions">Dimensions</button>
   <button class="top-tab" data-top="checks">Checks</button>
   <button class="top-tab" data-top="tvl">TVL</button>
+  <button class="top-tab" data-top="missing">Missing Metrics</button>
 </nav>
 
 <div class="top-panel" id="panel-dimensions">
@@ -271,6 +272,10 @@
 
 <div class="top-panel" id="panel-tvl">
   <main id="tvl-content"><div class="loading">Loading…</div></main>
+</div>
+
+<div class="top-panel" id="panel-missing">
+  <main id="missing-content"><div class="loading">Loading…</div></main>
 </div>
 
 <script>
@@ -1307,6 +1312,141 @@ async function loadTvlCacheUsage() {
   }
 }
 
+// ── Missing Metrics tab ────────────────────────────────────────────────────
+let missingLoaded = false;
+
+const MISSING_DIM_LABELS = {
+  'fees': 'Fees', 'dexs': 'DEX Vol', 'derivatives': 'Perps Vol',
+  'open-interest': 'OI', 'options': 'Options Vol', 'aggregators': 'Agg Vol',
+  'aggregator-derivatives': 'Agg Perps Vol', 'bridge-aggregators': 'Agg Bridge Vol',
+  'active-users': 'Active Users', 'new-users': 'New Users',
+};
+
+const PROTOCOL_MISSING_DIMS = ['fees', 'dexs', 'derivatives', 'options', 'aggregators'];
+
+function dimChip(dim, cls) {
+  const lbl = MISSING_DIM_LABELS[dim] || dim;
+  return '<span class="tag" style="margin:1px 2px' + (cls === 'missing' ? ';background:var(--red-bg);color:var(--red)' : '') + '">' + esc(lbl) + '</span>';
+}
+
+async function loadMissingTab() {
+  const content = document.getElementById('missing-content');
+  content.innerHTML = '<div class="loading">Loading…</div>';
+
+  try {
+    const data = await getJson('missing-metrics');
+    const protocols = (data.protocols ?? []).map((p, i) => ({ ...p, _idx: i + 1 }));
+    const chains = (data.chains ?? []).map((c, i) => ({ ...c, _idx: i + 1 }));
+    const categories = [...new Set(protocols.map(p => p.category).filter(Boolean))].sort();
+
+    content.innerHTML = `
+      <div style="padding:20px;overflow-y:auto;flex:1">
+        <div class="stats-header">
+          <div class="gen-time">
+            ${data.generationTime ? fmtDate(data.generationTime) + '<span class="rel">' + relTime(data.generationTime) + '</span>' : ''}
+          </div>
+        </div>
+
+        <div class="card" style="margin-bottom:20px">
+          <button class="collapse-toggle open" id="missing-protocols-toggle">
+            <span class="collapse-arrow">▶</span>
+            Protocols Missing Metrics
+            <span style="font-weight:400;color:var(--muted);font-size:11px;margin-left:6px">(${protocols.length})</span>
+          </button>
+          <div class="collapse-body open" id="missing-protocols-body" style="padding:0 16px 16px">
+            <div class="filter-bar">
+              <label>Search</label>
+              <input type="text" id="missing-proto-filter-name" placeholder="Protocol name…" style="width:180px">
+              <label>Category</label>
+              <select id="missing-proto-filter-category">
+                <option value="">All</option>
+                ${categories.map(c => '<option value="' + esc(c) + '">' + esc(c) + '</option>').join('')}
+              </select>
+              <label>Missing</label>
+              <select id="missing-proto-filter-dim">
+                <option value="">Any</option>
+                ${PROTOCOL_MISSING_DIMS.map(k => '<option value="' + esc(k) + '">' + esc(MISSING_DIM_LABELS[k]) + '</option>').join('')}
+              </select>
+              <label>Min TVL</label>
+              <select id="missing-proto-filter-min-tvl">
+                <option value="0" selected>Any</option>
+                <option value="100000000">$100M</option>
+                <option value="1000000000">$1B</option>
+                <option value="5000000000">$5B</option>
+                <option value="10000000000">$10B</option>
+              </select>
+            </div>
+            <div id="missing-proto-count" style="font-size:11px;color:var(--muted);margin-bottom:8px"></div>
+            <div id="tbl-missing-protocols"></div>
+          </div>
+        </div>
+
+        <div class="card">
+          <button class="collapse-toggle open" id="missing-chains-toggle">
+            <span class="collapse-arrow">▶</span>
+            Chains Missing Metrics
+            <span style="font-weight:400;color:var(--muted);font-size:11px;margin-left:6px">(${chains.length})</span>
+          </button>
+          <div class="collapse-body open" id="missing-chains-body" style="padding:0 16px 16px">
+            <div id="tbl-missing-chains"></div>
+          </div>
+        </div>
+      </div>
+    `;
+
+    ['missing-protocols', 'missing-chains'].forEach(id => {
+      document.getElementById(id + '-toggle')?.addEventListener('click', () => {
+        document.getElementById(id + '-toggle')?.classList.toggle('open');
+        document.getElementById(id + '-body')?.classList.toggle('open');
+      });
+    });
+
+    function renderMissingProtocols() {
+      const nameF = (document.getElementById('missing-proto-filter-name')?.value ?? '').toLowerCase();
+      const catF = document.getElementById('missing-proto-filter-category')?.value ?? '';
+      const dimF = document.getElementById('missing-proto-filter-dim')?.value ?? '';
+      const minTvl = Number(document.getElementById('missing-proto-filter-min-tvl')?.value ?? 0);
+
+      let filtered = protocols;
+      if (nameF) filtered = filtered.filter(r => r.name.toLowerCase().includes(nameF));
+      if (catF) filtered = filtered.filter(r => r.category === catF);
+      if (dimF) filtered = filtered.filter(r => (r.missingDims ?? []).includes(dimF));
+      if (minTvl > 0) filtered = filtered.filter(r => (r.tvl ?? 0) >= minTvl);
+
+      const countEl = document.getElementById('missing-proto-count');
+      if (countEl) countEl.textContent = 'Showing ' + filtered.length + ' of ' + protocols.length;
+
+      renderTable('tbl-missing-protocols', filtered, [
+        { key: '_idx', label: '#', sortVal: r => r._idx },
+        { key: 'name', label: 'Protocol', render: r => '<a href="https://defillama.com/protocol/' + encodeURIComponent(r.slug || sluggify(r.name)) + '" target="_blank" rel="noopener" style="color:var(--accent);text-decoration:none;font-weight:500">' + esc(r.name) + '</a>', sortVal: r => r.name },
+        { key: 'category', label: 'Category', render: r => r.category ? '<span class="tag">' + esc(r.category) + '</span>' : '—' },
+        { key: 'tvl', label: 'TVL', render: r => humanTvl(r.tvl), sortVal: r => r.tvl },
+        { key: 'presentDims', label: 'Present', render: r => Object.entries(r.presentDims ?? {}).map(([d, v]) => dimChip(d) + '<span style="font-size:10px;color:var(--muted);margin-right:6px">' + humanTvl(v) + '</span>').join('') || '—' },
+        { key: 'missingDims', label: 'Missing', render: r => (r.missingDims ?? []).map(d => dimChip(d, 'missing')).join('') || '—', sortVal: r => (r.missingDims ?? []).length },
+        { key: 'chains', label: 'Chains', render: r => (r.chains ?? []).slice(0, 3).map(c => '<span class="tag" style="margin:1px 2px">' + esc(c) + '</span>').join('') + ((r.chains ?? []).length > 3 ? '<span style="color:var(--muted);font-size:10px"> +' + ((r.chains ?? []).length - 3) + '</span>' : '') },
+      ], 'tvl', -1);
+    }
+    renderMissingProtocols();
+    document.getElementById('missing-proto-filter-name')?.addEventListener('input', renderMissingProtocols);
+    document.getElementById('missing-proto-filter-category')?.addEventListener('change', renderMissingProtocols);
+    document.getElementById('missing-proto-filter-dim')?.addEventListener('change', renderMissingProtocols);
+    document.getElementById('missing-proto-filter-min-tvl')?.addEventListener('change', renderMissingProtocols);
+
+    renderTable('tbl-missing-chains', chains, [
+      { key: '_idx', label: '#', sortVal: r => r._idx },
+      { key: 'name', label: 'Chain', render: r => '<a href="https://defillama.com/chain/' + encodeURIComponent(r.name) + '" target="_blank" rel="noopener" style="color:var(--accent);text-decoration:none;font-weight:500">' + esc(r.name) + '</a>', sortVal: r => r.name },
+      { key: 'tvl', label: 'TVL', render: r => humanTvl(r.tvl), sortVal: r => r.tvl },
+      { key: 'presentDims', label: 'Present', render: r => Object.entries(r.presentDims ?? {}).filter(([, v]) => v).map(([d]) => dimChip(d)).join('') || '—' },
+      { key: 'missingDims', label: 'Missing', render: r => (r.missingDims ?? []).map(d => dimChip(d, 'missing')).join('') || '—', sortVal: r => (r.missingDims ?? []).length },
+    ], 'tvl', -1);
+
+    missingLoaded = true;
+  } catch (err) {
+    content.innerHTML = '<div class="err-state">Error loading missing metrics: ' + esc(err.message) + '</div>';
+    console.error(err);
+  }
+}
+
 // ── Top-level tab switching ─────────────────────────────────────────────────
 function switchTopTab(tab) {
   const bar = document.getElementById('top-tab-bar');
@@ -1321,6 +1461,7 @@ function switchTopTab(tab) {
   if (tab === 'tvl' && !tvlLoaded) loadTvlTab();
   if (tab === 'checks' && !checksLoaded) loadChecksTab();
   if (tab === 'dimensions' && !summaryLoaded) loadDimSummary();
+  if (tab === 'missing' && !missingLoaded) loadMissingTab();
 }
 
 function initTopTabs() {
@@ -1354,7 +1495,7 @@ function init() {
 
   // Restore top tab from localStorage
   const savedTopTab = lsGet(LS_KEYS.topTab, 'dimensions');
-  switchTopTab(['dimensions', 'checks', 'tvl'].includes(savedTopTab) ? savedTopTab : 'dimensions');
+  switchTopTab(['dimensions', 'checks', 'tvl', 'missing'].includes(savedTopTab) ? savedTopTab : 'dimensions');
 }
 
 init();

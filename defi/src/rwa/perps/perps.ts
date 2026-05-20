@@ -145,8 +145,15 @@ export async function main(ts: number = 0): Promise<void> {
 
       const cumulativeFunding = await fetchCumulativeFundingPG(marketId);
 
-      // Use per-market fee rates from Airtable metadata
-      const takerFee = metadata.takerFeeRate;
+      // Prefer venue-sourced fees when an adapter exposes them; fall back to Airtable metadata.
+      const makerFee =
+        typeof market.makerFeeRate === "number" && Number.isFinite(market.makerFeeRate)
+          ? market.makerFeeRate
+          : metadata.makerFeeRate;
+      const takerFee =
+        typeof market.takerFeeRate === "number" && Number.isFinite(market.takerFeeRate)
+          ? market.takerFeeRate
+          : metadata.takerFeeRate;
       const deployerShare = metadata.deployerFeeShare;
       const fees24h = computeProtocolFees(market.volume24h, takerFee, deployerShare);
 
@@ -180,8 +187,8 @@ export async function main(ts: number = 0): Promise<void> {
           prevDayPx: market.prevDayPx,
           maxLeverage: market.maxLeverage,
           szDecimals: market.szDecimals,
-          makerFeeRate: metadata.makerFeeRate,
-          takerFeeRate: metadata.takerFeeRate,
+          makerFeeRate: makerFee,
+          takerFeeRate: takerFee,
           volume7d,
           volume30d,
           volumeAllTime,

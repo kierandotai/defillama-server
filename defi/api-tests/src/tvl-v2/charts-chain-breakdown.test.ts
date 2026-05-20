@@ -27,7 +27,7 @@ describe('TVL V2 API - Chart Chain Breakdown', () => {
         );
       })
     );
-  }, 60000);
+  }, 180000);
 
   describe('Basic Response Validation', () => {
     testProtocols.forEach((protocolSlug) => {

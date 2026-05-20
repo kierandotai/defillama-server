@@ -300,6 +300,8 @@ ${issues.length === 0
   <th data-col="openInterest" class="num">Open Interest</th>
   <th data-col="volume24h" class="num">Volume 24h</th>
   <th data-col="fundingRate" class="num">Funding Rate</th>
+  <th data-col="makerFeeRate" class="num">Maker Fee</th>
+  <th data-col="takerFeeRate" class="num">Taker Fee</th>
   <th data-col="maxLeverage" class="num">Max Lev</th>
   <th data-col="oraclePx" class="num">Oracle Px</th>
   <th data-col="premium" class="num">Premium</th>
@@ -321,6 +323,8 @@ ${allMarkets.map((m) => {
   <td class="num ${oiClass}">${fmtUSD(m.oiUsd)}</td>
   <td class="num ${volClass}">${fmtUSD(m.volume24h)}</td>
   <td class="num">${fmtPct(m.fundingRate * 100)}</td>
+  <td class="num">${m.makerFeeRate == null ? "—" : fmtPct(m.makerFeeRate * 100)}</td>
+  <td class="num">${m.takerFeeRate == null ? "—" : fmtPct(m.takerFeeRate * 100)}</td>
   <td class="num">${m.maxLeverage ? Math.round(m.maxLeverage) + "×" : "—"}</td>
   <td class="num">${m.oraclePx ? "$" + fmtNum(m.oraclePx, 4) : "—"}</td>
   <td class="num">${m.premium ? fmtPct(m.premium * 100) : "—"}</td>
@@ -376,7 +380,7 @@ issueFilter.addEventListener('change', applyFilters);
 
 // Column sorting
 let sortCol = null, sortDir = 1;
-const numCols = new Set(['markPx','priceChange24h','openInterest','volume24h','fundingRate','maxLeverage','oraclePx','premium']);
+const numCols = new Set(['markPx','priceChange24h','openInterest','volume24h','fundingRate','makerFeeRate','takerFeeRate','maxLeverage','oraclePx','premium']);
 document.querySelectorAll('th[data-col]').forEach(th => {
   th.addEventListener('click', () => {
     const col = th.dataset.col;

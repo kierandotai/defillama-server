@@ -236,6 +236,29 @@ export async function findDailyTimestampRecords(targetTimestamp: number): Promis
     return result;
 }
 // Store historical data
+function normalizeJsonMapField(value: any): string {
+    if (value == null) return JSON.stringify({});
+    if (typeof value === 'string') {
+        const trimmed = value.trim();
+        if (!trimmed || trimmed.toLowerCase() === 'null') return JSON.stringify({});
+        return value;
+    }
+    if (typeof value === 'object' && !Array.isArray(value)) return JSON.stringify(value);
+    return JSON.stringify({});
+}
+
+function normalizeHistoricalInsert(insert: any): any {
+    return {
+        ...insert,
+        defiactivetvl: normalizeJsonMapField(insert.defiactivetvl),
+        mcap: normalizeJsonMapField(insert.mcap),
+        activemcap: normalizeJsonMapField(insert.activemcap),
+        aggregatedefiactivetvl: Number(insert.aggregatedefiactivetvl) || 0,
+        aggregatemcap: Number(insert.aggregatemcap) || 0,
+        aggregatedactivemcap: Number(insert.aggregatedactivemcap) || 0,
+    };
+}
+
 export async function storeHistoricalPG(inserts: any, timestamp: number): Promise<void> {
     const dayTimestamp = getTimestampAtStartOfDay(timestamp);
     const closestRecord = await findDailyTimestampRecords(dayTimestamp);
@@ -243,13 +266,14 @@ export async function storeHistoricalPG(inserts: any, timestamp: number): Promis
 
     const dailyInserts: any[] = [];
     inserts.map((i: any) => {
-        const { id, timestamp } = i;
+        const normalized = normalizeHistoricalInsert(i);
+        const { id, timestamp } = normalized;
         const closestRecordData = closestRecord[id];
         const insert = {
-            ...i,
+            ...normalized,
             timestamp: dayTimestamp,
             timestamp_actual: timestamp,
-            created_at: i.created_at ?? now,
+            created_at: normalized.created_at ?? now,
             updated_at: now,
         };
 
@@ -258,11 +282,14 @@ export async function storeHistoricalPG(inserts: any, timestamp: number): Promis
     })
 
     // Add created_at (if missing) and updated_at to all inserts for hourly and backup tables
-    const insertsWithTimestamp = inserts.map((i: any) => ({
-        ...i,
-        created_at: i.created_at ?? now,
-        updated_at: now,
-    }));
+    const insertsWithTimestamp = inserts.map((i: any) => {
+        const normalized = normalizeHistoricalInsert(i);
+        return {
+            ...normalized,
+            created_at: normalized.created_at ?? now,
+            updated_at: now,
+        };
+    });
 
     const updateOnDuplicate = ['defiactivetvl', 'mcap', 'activemcap', 'aggregatedefiactivetvl', 'aggregatemcap', 'aggregatedactivemcap', 'timestamp_actual', 'updated_at'];
 
@@ -345,12 +372,7 @@ export async function fetchCurrentPG(): Promise<{ id: string; timestamp: number;
     return data.map((d: any) => {
         const copy: any = { ...d }
         jsonFields.forEach((field) => {
-            try {
-                copy[field] = JSON.parse(d[field]);
-            } catch (e) {
-                console.error(`Error parsing field ${field} for id ${d.id}:`, (e as any)?.message);
-                copy[field] = {};
-            }
+            copy[field] = parseJsonSafe(d[field]);
         })
         return copy
     }) as any
@@ -395,9 +417,11 @@ export async function fetchDailyRecordsForIdPG(id: string): Promise<any[]> {
 }
 const PAGE_SIZE = 5000;
 
-function parseJsonSafe(str: string): any {
+function parseJsonSafe(value: any): any {
+    if (value == null) return {};
     try {
-        return JSON.parse(str);
+        const parsed = typeof value === 'string' ? JSON.parse(value) : value;
+        return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : {};
     } catch {
         return {};
     }

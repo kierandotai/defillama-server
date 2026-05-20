@@ -32,6 +32,7 @@ async function genCache() {
   await storeTvlCacheUsageLogs()
   await storeCheckData('dimDetectDrops-latest', 'detect-drops')
   await storeCheckData('dimCheckResults-latest', 'check-results')
+  await storeMissingMetrics()
 }
 
 genCache()
@@ -201,6 +202,165 @@ async function storeCheckData(cacheKey, fileKey) {
   } catch (error) {
     console.error(`Error storing check data for ${cacheKey}:`, error)
   }
+}
+
+// Detect big protocols/chains that are missing metrics.
+async function storeMissingMetrics() {
+  const TVL_BIG = 1_000_000_000
+  // Monthly values
+  const FEES_BIG = 1_000_000
+  const VOL_BIG = 100_000_000
+
+  // Dims we care about flagging
+  const TRACKED_DIMS = [
+    'fees',
+    'dexs', 
+    'derivatives', 
+    'options', 
+    'aggregators',
+    'aggregator-derivatives',
+    'bridge-aggregators'   
+  ]
+
+  try {
+    const protocols = await sdk.cache.cachedFetch({
+      key: 'protocols-data',
+      endpoint: 'https://api.llama.fi/protocols',
+    })
+    if (!Array.isArray(protocols) || !protocols.length) {
+      console.error('Skipping missing metrics refresh: protocols data is empty or invalid')
+      return
+    }
+
+    const dimByName = {}
+    for (const dim of TRACKED_DIMS) {
+      const filePath = path.join(__dirname, '.cache', `dim-data-${dim}.json`)
+      try {
+        const dimData = JSON.parse(fs.readFileSync(filePath, 'utf8'))
+        if (!dimData || typeof dimData !== 'object' || Array.isArray(dimData) || !Object.keys(dimData).length) {
+          throw new Error(`Dim data cache is empty or invalid: ${filePath}`)
+        }
+        dimByName[dim] = dimData
+      } catch (e) {
+        console.error(`Skipping missing metrics refresh: unable to read valid dim data for ${dim}`, e)
+        return
+      }
+    }
+
+    const SKIP_CATEGORIES = ['cex']
+
+    const VOLUME_DIM_BY_CATEGORY = {
+      'dexs':             'dexs',
+      'dex aggregator':   'aggregators',
+      'yield aggregator': 'aggregators',
+      'derivatives':      'derivatives',
+      'perps':            'derivatives',
+      'options':          'options',
+      'options vault':    'options',
+    }
+
+    const protocolRows = []
+    for (const p of protocols) {
+      if (!p || !p.name) continue
+      const category = (p.category || '').toLowerCase()
+      if (SKIP_CATEGORIES.includes(category)) continue
+      const tvl = Number(p.tvl) || 0
+
+      const presentDims = {}
+      for (const dim of TRACKED_DIMS) {
+        const d = dimByName[dim][p.name]
+        if (d && d.total30d != null) presentDims[dim] = d.total30d
+      }
+
+      const isMajorProtocol =
+        tvl >= TVL_BIG ||
+        (presentDims['fees'] || 0) >= FEES_BIG ||
+        (presentDims['dexs'] || 0) >= VOL_BIG ||
+        (presentDims['derivatives'] || 0) >= VOL_BIG ||
+        (presentDims['options'] || 0) >= VOL_BIG
+      if (!isMajorProtocol) continue
+
+      const expected = ['fees']
+      const volumeDim = VOLUME_DIM_BY_CATEGORY[category]
+      if (volumeDim) expected.push(volumeDim)
+
+      const missingDims = expected.filter(d => presentDims[d] == null)
+      if (!missingDims.length) continue
+
+      protocolRows.push({
+        name: p.name,
+        slug: p.slug || sluggify(p.name),
+        category: p.category || '',
+        tvl,
+        chains: Array.isArray(p.chains) ? p.chains : [],
+        presentDims,
+        missingDims,
+      })
+    }
+
+    // Chains
+
+    const CHAIN_DIMS = ['fees', 'active-users', 'new-users']
+    const chainRows = []
+    const overviewByDim = {}
+    const [chains, ...overviews] = await Promise.all([
+      sdk.cache.cachedFetch({
+        key: 'chains-tvl',
+        endpoint: 'https://api.llama.fi/v2/chains',
+      }),
+      ...CHAIN_DIMS.map(dim => sdk.cache.cachedFetch({
+        key: `overview-${dim}`,
+        endpoint: `https://api.llama.fi/overview/${dim}?excludeTotalDataChart=true&excludeTotalDataChartBreakdown=true`,
+      })),
+    ])
+    if (!Array.isArray(chains) || !chains.length) {
+      console.error('Skipping missing metrics refresh: chains data is empty or invalid')
+      return
+    }
+    CHAIN_DIMS.forEach((dim, i) => { overviewByDim[dim] = overviews[i] })
+    for (const dim of CHAIN_DIMS) {
+      if (!Array.isArray(overviewByDim[dim]?.allChains) || !overviewByDim[dim].allChains.length) {
+        console.error(`Skipping missing metrics refresh: chain list is empty or invalid for ${dim}`)
+        return
+      }
+    }
+
+    // Lowercased chain-name sets per dim for presence checks
+    const chainSet = (ov) => new Set(ov.allChains.map(c => String(c).toLowerCase()))
+    const chainsByDim = Object.fromEntries(
+      CHAIN_DIMS.map(dim => [dim, chainSet(overviewByDim[dim])])
+    )
+
+    for (const c of chains) {
+      if (!c?.name) continue
+      const tvl = Number(c.tvl) || 0
+      if (tvl < TVL_BIG) continue
+      const key = c.name.toLowerCase()
+      const present = {}
+      for (const dim of CHAIN_DIMS) present[dim] = chainsByDim[dim].has(key)
+      const missing = Object.entries(present).filter(([, v]) => !v).map(([k]) => k)
+      if (!missing.length) continue
+      chainRows.push({
+        name: c.name,
+        tvl,
+        presentDims: present,
+        missingDims: missing,
+      })
+    }
+
+    const out = {
+      generationTime: new Date().toISOString(),
+      protocols: protocolRows,
+      chains: chainRows,
+    }
+    fs.writeFileSync(path.join(__dirname, '.cache', 'missing-metrics.json'), JSON.stringify(out))
+  } catch (error) {
+    console.error('Error storing missing metrics:', error)
+  }
+}
+
+function sluggify(name) {
+  return String(name || '').toLowerCase().split(' ').join('-').split("'").join('')
 }
 
 async function storeDimData(adapterType) {

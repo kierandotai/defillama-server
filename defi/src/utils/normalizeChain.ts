@@ -6061,6 +6061,15 @@ export const chainCoingeckoIds = {
     url: "https://aleo.org/",
     github: ["AleoNet"],
   },
+  "Sentrix": {
+    geckoId: null,
+    symbol: "SRX",
+    cmcId: null,
+    twitter: "sentrixchain",
+    url: "https://sentrixchain.com/",
+    github: ["sentrix-labs"],
+    chainId: 7119,
+  },
 } as unknown as ChainCoinGekcoIds;
 
 // We are creating the list here because, later in the code, we include historical chain labels with the same chain metadata, so, chainCoingeckoIds will have duplicate keys
@@ -6316,6 +6325,7 @@ const chainLabelMap = {
   "dango": "Dango",
   "rise": "RISE",
   "aleo": "Aleo",
+  "srx": "Sentrix",
 } as { [key: string]: string }
 
 // When we decide to change the display name of a chain, we add the mapping for the new name here
