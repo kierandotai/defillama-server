@@ -12,8 +12,12 @@ import {
   Metadata,
 } from "./dbInterfaces";
 const confidenceThreshold: number = 0.3;
+const staleCgConfidenceThreshold: number = 0.8;
+const staleCgPriceChangeThreshold: number = 0.1; // 10%
+const staleDownwardCheckHours: number = 3;
 import pLimit from "p-limit";
 
+import { staleMargin } from "../../utils/coingeckoPlatforms";
 import * as sdk from '@defillama/sdk'
 const { sliceIntoChunks, } = sdk.util
 
@@ -317,15 +321,10 @@ export async function filterWritesWithLowConfidence(
   allWrites: Write[],
   latencyHours: number = 3,
 ) {
-  const recentTime: number = getCurrentUnixTimestamp() - latencyHours * 60 * 60;
+  const staleTime = getCurrentUnixTimestamp() - latencyHours * 60 * 60;
 
   allWrites = allWrites.filter((w: Write) => w != undefined);
-  const allReads = (
-    await batchGet(allWrites.map((w: Write) => ({ PK: w.PK, SK: 0 })))
-  ).filter(
-    (w: any) =>
-      (w.timestamp ?? 0) > recentTime || (w.created ?? 0 > recentTime),
-  );
+  const allReads = await batchGet(allWrites.map((w: Write) => ({ PK: w.PK, SK: 0 })));
 
   const filteredWrites: Write[] = [];
   const checkedWrites: Write[] = [];
@@ -355,9 +354,14 @@ export async function filterWritesWithLowConfidence(
     );
 
     let allReadsOfThisKind = allReads.filter((x: any) => x.PK == w.PK);
+    const currentRead = allReadsOfThisKind[0];
+    const isStale =
+      currentRead != null && (currentRead.timestamp ?? 0) < staleTime;
 
     if (allWritesOfThisKind.length == 1) {
+      // When stored data is stale (>3h), accept lower confidence writes
       if (
+        !isStale &&
         allReadsOfThisKind.length == 1 &&
         allWritesOfThisKind[0].confidence < allReadsOfThisKind[0].confidence
       )
@@ -372,20 +376,129 @@ export async function filterWritesWithLowConfidence(
     } else {
       const maxConfidence = Math.max.apply(
         null,
-        [...allWritesOfThisKind, ...allReadsOfThisKind].map(
+        [...allWritesOfThisKind, ...(isStale ? [] : allReadsOfThisKind)].map(
           (x: Write) => x.confidence,
         ),
       );
       filteredWrites.push(
         allWritesOfThisKind.filter(
           (x: Write) =>
-            x.confidence == maxConfidence && x.confidence > confidenceThreshold,
+            x.confidence == maxConfidence &&
+            x.confidence > confidenceThreshold,
         )[0],
       );
     }
   });
 
-  return filteredWrites.filter((f: Write) => f != undefined);
+  // For asset writes with a stale coingecko redirect, rewrite PK to coingecko#<id>
+  // so all chain deployments get repriced from this secondary source
+  const redirectMap: Record<string, string> = {}; // asset PK -> coingecko PK
+  const missingCgPKs = new Set<string>();
+  let staleCgEntries: Record<string, any> = {}; // cgPK -> stale/non-CG entry
+
+  const assetWrites = filteredWrites.filter(
+    (w) => w?.PK?.startsWith("asset#") && w.confidence >= staleCgConfidenceThreshold,
+  );
+  if (assetWrites.length > 0) {
+    // Reuse allReads instead of re-fetching
+    for (const entry of allReads.filter((r: any) => assetWrites.some((w) => w.PK === r.PK))) {
+      if (entry?.redirect?.startsWith("coingecko#")) {
+        redirectMap[entry.PK] = entry.redirect;
+      }
+    }
+
+    // Check staleness of the coingecko entries
+    const uniqueCgPKs = [...new Set(Object.values(redirectMap))];
+    if (uniqueCgPKs.length > 0) {
+      const cgEntries = await batchGet(
+        uniqueCgPKs.map((pk) => ({ PK: pk, SK: 0 })),
+      );
+      const now = getCurrentUnixTimestamp();
+      const returnedPKs = new Set(cgEntries.map((e: any) => e?.PK).filter(Boolean));
+      for (const pk of uniqueCgPKs) {
+        if (!returnedPKs.has(pk)) {
+          missingCgPKs.add(pk);
+          sdk.log(`filterWrites: CG entry ${pk} missing, skipping override`);
+        }
+      }
+      for (const entry of cgEntries) {
+        if (!entry) continue;
+        const isCgAdapter = entry.adapter === "coingecko";
+        const isStale = (now - (entry.timestamp ?? 0)) >= staleMargin;
+        // Override when: CG feed is stale, OR a secondary source already took over
+        if (!isCgAdapter || isStale) staleCgEntries[entry.PK] = entry;
+      }
+
+      // Pick one winning asset PK per cgPK so multiple chain deployments don't
+      // collide on the same {PK, SK} after rewrite. Highest conf wins; ties
+      // break by PK alphabetical.
+      const winnerByCgPK: Record<string, { PK: string; confidence: number }> = {};
+      for (const w of filteredWrites) {
+        if (!w?.PK?.startsWith("asset#")) continue;
+        const cgPK = redirectMap[w.PK];
+        if (!cgPK || !staleCgEntries[cgPK]) continue;
+        if (w.confidence < staleCgConfidenceThreshold) continue;
+
+        const cgEntry = staleCgEntries[cgPK];
+        if (w.price == null || !Number.isFinite(w.price) || w.price <= 0) {
+          sdk.log(
+            `filterWrites: skipping stale CG override for ${w.PK} -> ${cgPK}: invalid write price ${w.price}`,
+          );
+          continue;
+        }
+        if (cgEntry.price != null) {
+          if (!Number.isFinite(cgEntry.price) || cgEntry.price <= 0) {
+            sdk.log(
+              `filterWrites: skipping stale CG override for ${w.PK} -> ${cgPK}: invalid CG price ${cgEntry.price}`,
+            );
+            continue;
+          }
+          const priceChange = Math.abs(w.price - cgEntry.price) / cgEntry.price;
+          if (priceChange > staleCgPriceChangeThreshold) {
+            sdk.log(`filterWrites: skipping stale CG override for ${w.PK} -> ${cgPK}: price change ${(priceChange * 100).toFixed(1)}% exceeds ${staleCgPriceChangeThreshold * 100}%`);
+            continue;
+          }
+        }
+        const c = winnerByCgPK[cgPK];
+        if (!c || w.confidence > c.confidence || (w.confidence === c.confidence && w.PK < c.PK)) {
+          winnerByCgPK[cgPK] = { PK: w.PK, confidence: w.confidence };
+        }
+      }
+
+      for (const w of filteredWrites) {
+        if (!w?.PK?.startsWith("asset#")) continue;
+        const cgPK = redirectMap[w.PK];
+        if (!cgPK || winnerByCgPK[cgPK]?.PK !== w.PK) continue;
+        sdk.log(`filterWrites: ${w.PK} -> ${cgPK} (stale CG, confidence ${w.confidence}, $${w.price?.toFixed(4)})`);
+        w.PK = cgPK;
+      }
+    }
+  }
+
+  const dedupedWrites = new Map<string, { write: Write; index: number }>();
+  filteredWrites.forEach((w, index) => {
+    if (!w) return;
+    const key = `${w.PK}::${w.SK}`;
+    const previous = dedupedWrites.get(key);
+    if (!previous || w.confidence > previous.write.confidence) {
+      dedupedWrites.set(key, { write: w, index });
+    }
+  });
+  const writesAfterRewriteDedupe = [...dedupedWrites.values()]
+    .sort((a, b) => a.index - b.index)
+    .map(({ write }) => write);
+
+  // Remove asset writes whose CG redirect is fresh (not stale) — the CG feed
+  // is already providing up-to-date prices so the lower-confidence adapter write is redundant
+  return writesAfterRewriteDedupe.filter((f: Write) => {
+    if (!f) return false;
+    if (!f.PK?.startsWith("asset#")) return true;
+    const cgPK = redirectMap[f.PK];
+    if (!cgPK) return true; // no CG redirect, keep it
+    if (missingCgPKs.has(cgPK)) return true; // no CG entry to compare against, keep the asset write
+    if (staleCgEntries[cgPK]) return true; // CG is stale/non-CG, keep the asset write or rewritten winner
+    return false; // CG is fresh, drop the redundant asset write
+  });
 }
 function aggregateTokenAndRedirectData(reads: Read[]) {
   const coinData: CoinData[] = reads
@@ -432,9 +545,23 @@ export async function batchWriteWithAlerts(
   failOnError: boolean,
 ): Promise<{ writeCount: number } | undefined> {
   try {
-    const { previousItems, redirectChanges } = await readPreviousValues(items);
+    const {
+      previousItems,
+      movementCheckHours,
+      veryStaleItems,
+      veryStaleHours,
+      redirectChanges,
+    } = await readPreviousValues(items);
     const filteredItems: any[] =
-      (await checkMovement(items, previousItems)).filter((i: any) => isFinite(i.price) || i.redirect);
+      (
+        await checkMovement(
+          items,
+          previousItems,
+          veryStaleItems,
+          veryStaleHours,
+          movementCheckHours,
+        )
+      ).filter((i: any) => isFinite(i.price) || i.redirect);
     const writeItems = [...filteredItems, ...redirectChanges]
     const ddbWriteResult = await batchWrite(writeItems, failOnError);
 
@@ -481,7 +608,13 @@ export async function batchWriteWithAlerts(
 async function readPreviousValues(
   items: any[],
   latencyHours: number = 6,
-): Promise<{ previousItems: DbEntry[]; redirectChanges: any[] }> {
+): Promise<{
+  previousItems: DbEntry[];
+  movementCheckHours: number;
+  veryStaleItems: Map<string, number>;
+  veryStaleHours: number;
+  redirectChanges: any[];
+}> {
   let queries: { PK: string; SK: number }[] = [];
   items.map(
     (t: any, i: number) => {
@@ -493,13 +626,29 @@ async function readPreviousValues(
     },
   );
   const results = await batchGet(queries);
-  const recentTime: number = getCurrentUnixTimestamp() - latencyHours * 60 * 60;
+  const now = getCurrentUnixTimestamp();
+  const recentTime = now - latencyHours * 60 * 60;
+  const veryStaleHours = 4 * latencyHours;
+  const veryStaleTime = now - veryStaleHours * 60 * 60;
   const previousItems = results.filter(
     (r: any) => r.timestamp > recentTime || r.confidence > 1,
   );
 
+  const veryStaleItems = new Map<string, number>();
+  for (const r of results) {
+    if (r && (r.timestamp ?? 0) < veryStaleTime) {
+      veryStaleItems.set(r.PK, r.price ?? 0);
+    }
+  }
+
   const redirectChanges = findRedirectChanges(items, results);
-  return { previousItems, redirectChanges };
+  return {
+    previousItems,
+    movementCheckHours: latencyHours,
+    veryStaleItems,
+    veryStaleHours,
+    redirectChanges,
+  };
 }
 function findRedirectChanges(items: any[], results: any[]): any[] {
   const newRedirects: { [key: string]: any } = {};
@@ -533,22 +682,48 @@ function findRedirectChanges(items: any[], results: any[]): any[] {
 async function checkMovement(
   items: any[],
   previousItems: DbEntry[],
+  veryStaleItems: Map<string, number>,
+  veryStaleHours: number,
+  movementCheckHours: number,
   margin: number = 0.5,
 ): Promise<any[]> {
-  const filteredItems: any[] =
-    [];
+  const filteredItems: any[] = [];
   const obj: { [PK: string]: any } = {};
   let errors: string = "";
+  let staleAlerts: string = "";
+  const now = getCurrentUnixTimestamp();
+  const staleDownwardCheckTime = now - staleDownwardCheckHours * 60 * 60;
+  const movementCheckTime = now - movementCheckHours * 60 * 60;
   previousItems.map((i: any) => (obj[i.PK] = i));
 
   items.map((d: any, i: number) => {
     if (i % 2 != 0) return;
+
+    // Data beyond the configured very-stale threshold skips the % change check.
+    if (veryStaleItems.has(d.PK)) {
+      staleAlerts += `${d.PK} \t $${veryStaleItems.get(d.PK)} -> $${d.price}\n`;
+      filteredItems.push(...[items[i], items[i + 1]]);
+      return;
+    }
+
     const previousItem = obj[d.PK];
     if (previousItem) {
       const percentageChange: number =
         (d.price - previousItem.price) / previousItem.price;
+      const isStaleWithinMovementWindow =
+        previousItem.timestamp != null &&
+        previousItem.timestamp < staleDownwardCheckTime &&
+        previousItem.timestamp > movementCheckTime;
+      const isDownwardMoveBeyondMargin = percentageChange < -margin;
 
       if (percentageChange > margin) {
+        errors += `${d.adapter} \t ${d.PK.substring(
+          d.PK.indexOf("#") + 1,
+        )} \t ${(percentageChange * 100).toFixed(3)}% change from $${previousItem.price
+          } to $${d.price}\n`;
+        return;
+      }
+      if (isStaleWithinMovementWindow && isDownwardMoveBeyondMargin) {
         errors += `${d.adapter} \t ${d.PK.substring(
           d.PK.indexOf("#") + 1,
         )} \t ${(percentageChange * 100).toFixed(3)}% change from $${previousItem.price
@@ -559,8 +734,13 @@ async function checkMovement(
     filteredItems.push(...[items[i], items[i + 1]]);
   });
 
-  // if (errors != "" && !process.env.LLAMA_RUN_LOCAL)
-  // await sendMessage(errors, process.env.STALE_COINS_ADAPTERS_WEBHOOK!, true);
+  // Fire-and-forget: a Discord outage must not block the writes we just validated
+  if (staleAlerts != "" && process.env.STALE_COINS_ADAPTERS_WEBHOOK)
+    sendMessage(
+      `Stale coins (>${veryStaleHours}h) accepting updates:\n${staleAlerts}`,
+      process.env.STALE_COINS_ADAPTERS_WEBHOOK,
+      true,
+    ).catch((e) => sdk.log(`checkMovement: stale-coins alert failed: ${e}`));
 
   return filteredItems.filter((v: any) => v != null);
 }

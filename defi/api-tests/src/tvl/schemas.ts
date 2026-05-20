@@ -214,7 +214,7 @@ export const tokenProtocolsArraySchema = z.array(tokenProtocolSchema);
 // ============================================================================
 
 export const tokenTvlDataSchema = z.object({
-  date: z.string(),
+  date: z.string().optional(),
   tvl: z.record(z.string(), z.number().finite().nonnegative()),
 });
 

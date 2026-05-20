@@ -171,8 +171,6 @@
  *     --from-date 2025-11-29
  */
 
-import { coins } from "@defillama/sdk";
-import { runInPromisePool } from "@defillama/sdk/build/generalUtil";
 import * as fs from "fs";
 import * as path from "path";
 import {
@@ -515,6 +513,8 @@ function buildSimulatedAggRows(existingAgg: any[], writes: PlannedWrite[]): any[
 function renderHtml(
   before: HistoricalRecord[],
   after: HistoricalRecord[],
+  fromTs: number | null,
+  cutoverTs: number | null,
   writes: PlannedWrite[],
   skipped: number,
   assetId: string,
@@ -522,6 +522,7 @@ function renderHtml(
   const beforePts = before.map((r) => ({ x: r.timestamp * 1000, y: r.onChainMcap }));
   const afterPts = after.map((r) => ({ x: r.timestamp * 1000, y: r.onChainMcap }));
   const fmtUSD = (n: number) => "$" + (n / 1e6).toFixed(2) + "M";
+  const fmtDate = (ts: number | null) => (ts ? new Date(ts * 1000).toISOString().slice(0, 10) : "n/a");
   const lastBefore = before[before.length - 1];
   const lastAfter = after[after.length - 1];
   const fullCount = writes.filter((w) => w.changed.mcap || w.changed.activeMcap).length;
@@ -553,6 +554,7 @@ function renderHtml(
   <div class="stat"><div class="stat-label">Last point — before</div><div class="stat-value">${lastBefore ? fmtUSD(lastBefore.onChainMcap) : "n/a"}</div></div>
   <div class="stat"><div class="stat-label">Last point — after</div><div class="stat-value">${lastAfter ? fmtUSD(lastAfter.onChainMcap) : "n/a"}</div></div>
   <div class="stat"><div class="stat-label">Series — before / after</div><div class="stat-value">${before.length} / ${after.length}</div></div>
+  <div class="stat"><div class="stat-label">From / cutover</div><div class="stat-value">${fmtDate(fromTs)} / ${fmtDate(cutoverTs)}</div></div>
 </div>
 <div class="chart-wrap"><canvas id="chart"></canvas></div>
 <div class="legend-note">
@@ -652,7 +654,9 @@ async function main() {
       const before = applyProdTransform(existingAgg);
       const simulatedAgg = buildSimulatedAggRows(existingAgg, writes);
       const after = applyProdTransform(simulatedAgg);
-      const html = renderHtml(before, after, writes, skipped, ASSET_ID!);
+      const fullWrites = writes.filter((w) => w.changed.mcap || w.changed.activeMcap);
+      const cutoverTs = fullWrites.length > 0 ? fullWrites[fullWrites.length - 1].dayTs : null;
+      const html = renderHtml(before, after, FROM_TS, cutoverTs, writes, skipped, ASSET_ID!);
       const outPath = path.resolve(OUT);
       fs.writeFileSync(outPath, html);
       console.log(`[backfill] preview written: ${outPath}`);

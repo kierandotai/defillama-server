@@ -4505,6 +4505,7 @@ const data5: Protocol[] = [
     twitter: null,
     github: ["AES-256-2"],
     listedAt: 1764779412,
+    deadUrl: true,
   },
   {
     id: "7085",
@@ -6331,6 +6332,7 @@ const data5: Protocol[] = [
     module: "exoticfinance/index.js",
     twitter: "exoticprotocol",
     listedAt: 1766102049,
+    deadUrl: true,
   },
   {
     id: "7172",
@@ -7674,6 +7676,7 @@ const data5: Protocol[] = [
     twitter: "syscall_sdk",
     github: ["syscall-sdk"],
     listedAt: 1768235705,
+    deadUrl: true,
   },
   {
     id: "7234",
@@ -8907,6 +8910,7 @@ const data5: Protocol[] = [
       derivatives: "ranger-finance-perps",
       fees: "ranger-finance-perps",
     },
+    deadUrl: true,
   },
   {
     id: "7292",
@@ -9270,6 +9274,7 @@ const data5: Protocol[] = [
     module: "stackfi/index.js",
     twitter: "StackFi_",
     listedAt: 1769460204,
+    deadUrl: true,
   },
   {
     id: "7309",
@@ -9307,6 +9312,7 @@ const data5: Protocol[] = [
     twitter: "LeMONAD_Factory",
     audit_links: ["https://lemonad.gitbook.io/lemonad-docs/security-audit"],
     listedAt: 1769460627,
+    deadUrl: true,
   },
   {
     id: "7311",
@@ -10586,6 +10592,7 @@ const data5: Protocol[] = [
     module: "glorb/index.js",
     twitter: "Glorb_wtf",
     listedAt: 1770658372,
+    deadUrl: true,
   },
   {
     id: "7371",
@@ -11269,6 +11276,7 @@ const data5: Protocol[] = [
     twitter: "offshore_defi",
     github: ["offshore-ltd"],
     listedAt: 1771260169,
+    deadUrl: true,
   },
   {
     id: "7403",
@@ -12211,8 +12219,8 @@ const data5: Protocol[] = [
   {
     id: "7449",
     name: "Zest V2",
-    address: null,
-    symbol: "-",
+    address: "stacks:SP1A27KFY4XERQCCRCARCYD1CC5N7M6688BSYADJ7.zest-token",
+    symbol: "ZEST",
     url: "https://www.zestprotocol.com/",
     description:
       "Zest Protocol is an open-source, on-chain lending platform built for Bitcoin, allowing users to earn or borrow against their BTC",
@@ -14795,6 +14803,7 @@ const data5: Protocol[] = [
     dimensions: {
       fees: "mineloot",
     },
+    deadUrl: true,
   },
   {
     id: "7571",
@@ -15177,6 +15186,9 @@ const data5: Protocol[] = [
     module: "rockawayx/index.js",
     twitter: "Rockaway_X",
     listedAt: 1774551409,
+    dimensions: {
+      fees: "rockawayx",
+    },
   },
   {
     id: "7589",

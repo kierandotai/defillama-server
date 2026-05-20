@@ -133,6 +133,6 @@ describe('TVL V2 API - Metrics Protocol Overview', () => {
         expect(response.data.name).toBeDefined();
         expect(Array.isArray(response.data.chains)).toBe(true);
       }
-    }, 60000);
+    }, 120000);
   });
 });

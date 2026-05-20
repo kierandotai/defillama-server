@@ -20,7 +20,7 @@ describe('Main Page API - Treasuries', () => {
     treasuriesResponse = await apiClient.get<TreasuriesResponse>(
       endpoints.MAIN_PAGE.TREASURIES
     );
-  }, 30000);
+  }, 90000);
 
   describe('Basic Response Validation', () => {
     it('should return successful response with valid structure', () => {

@@ -714,7 +714,8 @@ const data3_0: Protocol[] = [
     listedAt: 1679923802,
     dimensions: {
       dexs: "swapline"
-    }
+    },
+    deadUrl: true,
   },
   {
     id: "2732",
@@ -4476,6 +4477,7 @@ const data3_0: Protocol[] = [
     twitter: "DmxDao",
     audit_links: ["https://docs.dmxdao.com/audit"],
     listedAt: 1682586607,
+    deadUrl: true,
   },
   {
     id: "2903",
@@ -5616,6 +5618,7 @@ const data3_0: Protocol[] = [
       "https://certificate.quantstamp.com/full/archi-finance/abb48b19-672a-4390-bf11-59c485978d61/index.html",
     ],
     listedAt: 1683639046,
+    deadUrl: true,
   },
   {
     id: "2953",
@@ -8328,6 +8331,7 @@ const data3_0: Protocol[] = [
     oraclesBreakdown: [ { name: "Chainlink", type: "Primary", proof: []} ],
     github: ["Sterl-o"],
     listedAt: 1686153940,
+    deadUrl: true,
   },
   {
     id: "3077",
@@ -9437,6 +9441,7 @@ const data3_0: Protocol[] = [
     audit_links: ["https://doc.pairex.io/smart-contract-audits"],
     twitter: "pairex_io",
     listedAt: 1687207612,
+    deadUrl: true,
   },
   {
     id: "3127",
@@ -10251,6 +10256,7 @@ const data3_0: Protocol[] = [
     audit_links: ["https://struct-finance.notion.site/Audits-5b16f07308024dec848808aaf1a5a21d"],
     listedAt: 1687863935,
     github: ["struct-defi"],
+    deadUrl: true
   },
   {
     id: "3166",
@@ -10556,7 +10562,8 @@ const data3_0: Protocol[] = [
     listedAt: 1688122598,
     dimensions: {
       dexs: "pegasys-v3"
-    }
+    },
+    deadUrl: true,
   },
   {
     id: "3179",
@@ -11911,6 +11918,7 @@ const data3_0: Protocol[] = [
     audit_links: ["https://github.com/moraswap/v2-periphery/blob/master/audits/masterchef-by-hashex.pdf"],
     parentProtocol: "parent#moraswap",
     listedAt: 1689658469,
+    deadUrl: true,
   },
   {
     id: "3243",
@@ -12496,6 +12504,7 @@ const data3_0: Protocol[] = [
     forkedFromIds: ["1407"],
     parentProtocol: "parent#crust-finance",
     listedAt: 1689895631,
+    deadUrl: true,
   },
   {
     id: "3264",
@@ -16581,6 +16590,7 @@ const data3_0: Protocol[] = [
       "https://github.com/ContractWolf/smart-contract-audits/blob/main/ContractWolf_Audit_AltitudeDEFI_Bridge.pdf",
     ],
     listedAt: 1693231695,
+    deadUrl: true,
   },
   {
     id: "3448",
@@ -16670,6 +16680,7 @@ const data3_1: Protocol[] = [
     parentProtocol: "parent#astarter",
     twitter: "AstarterDefiHub",
     listedAt: 1693279471,
+    deadUrl: true,
   },
   {
     id: "3452",
@@ -16712,6 +16723,7 @@ const data3_1: Protocol[] = [
     twitter: "RacoonSupply",
     github: ["racoon-supply-rac"],
     listedAt: 1693318939,
+    deadUrl: true,
   },
   {
     id: "3454",
@@ -17252,6 +17264,7 @@ const data3_1: Protocol[] = [
     twitter: "AstarterDefiHub",
     parentProtocol: "parent#astarter",
     listedAt: 1693577005,
+    deadUrl: true,
   },
   {
     id: "3479",
@@ -18552,7 +18565,8 @@ const data3_1: Protocol[] = [
     listedAt: 1695134044,
     dimensions: {
       fees: "post-tech"
-    }
+    },
+    deadUrl: true,
   },
   {
     id: "3536",
@@ -20896,6 +20910,7 @@ const data3_1: Protocol[] = [
     twitter: "LyveFinance",
     audit_links: ["https://github.com/solidproof/projects/tree/main/2023/Lyve%20Finance"], //
     listedAt: 1697550491,
+    deadUrl: true,
   },
   {
     id: "3642",
@@ -21214,6 +21229,7 @@ const data3_1: Protocol[] = [
     module: "simps/index.js",
     twitter: "simpssocial",
     listedAt: 1697670345,
+    deadUrl: true,
   },
   {
     id: "3656",
@@ -21521,7 +21537,8 @@ const data3_1: Protocol[] = [
     dimensions: {
       fees: "zebra-v1",
       dexs: "zebra-v1"
-    }
+    },
+    deadUrl: true,
   },
   {
     id: "3669",
@@ -23005,6 +23022,7 @@ const data3_1: Protocol[] = [
     twitter: "RumiFinance",
     audit_links: ["https://hacken.io/audits/rumi-finance/"],
     listedAt: 1699008865,
+    deadUrl: true,
   },
   {
     id: "3739",
@@ -25193,6 +25211,7 @@ const data3_1: Protocol[] = [
     module: "ionise-io/index.js",
     twitter: "ionise_protocol",
     listedAt: 1700782122,
+    deadUrl: true,
   },
   {
     id: "3840",
@@ -25843,6 +25862,7 @@ const data3_1: Protocol[] = [
     audit_links: ["https://betafinance.gitbook.io/betafinance/security-and-audits"],
     parentProtocol: "parent#beta-finance",
     listedAt: 1701400910,
+    deadUrl: true
   },
   {
     id: "3871",
@@ -26507,7 +26527,8 @@ const data3_1: Protocol[] = [
     dimensions: {
       fees: "zebra-v2",
       dexs: "zebra-v2"
-    }
+    },
+    deadUrl: true,
   },
   {
     id: "3902",
@@ -32961,6 +32982,7 @@ const data3_2: Protocol[] = [
     twitter: "kewlswap",
     github: ["kewlexchange"],
     listedAt: 1708960580,
+    deadUrl: true,
   },
   /* {  // delist defiverse, it is a duplicate listing of "Gaming DEX"
     id: "4176",
@@ -33079,7 +33101,8 @@ const data3_2: Protocol[] = [
     module: "scopuly/index.js",
     twitter: "scopuly",
     github: ["Scopuly"],
-    listedAt: 1709034413
+    listedAt: 1709034413,
+    deadUrl: true,
   },
   {
     id: "4182",
@@ -33564,6 +33587,7 @@ const data3_2: Protocol[] = [
     forkedFromIds: ["2197"],
     parentProtocol: "parent#cyberblast",
     listedAt: 1709293678,
+    deadUrl: true,
   },
   {
     id: "4203",
@@ -33584,6 +33608,7 @@ const data3_2: Protocol[] = [
     forkedFromIds: ["2198"],
     parentProtocol: "parent#cyberblast",
     listedAt: 1709293678,
+    deadUrl: true,
   },
   {
     id: "4204",
@@ -35056,7 +35081,8 @@ const data3_2: Protocol[] = [
     dimensions: {
       fees: "moraswap-v3",
       dexs: "moraswap-v3"
-    }
+    },
+    deadUrl: true,
   },
   {
     id: "4270",
@@ -36051,6 +36077,7 @@ const data3_2: Protocol[] = [
     module: "bridgem/index.js",
     twitter: "BridgeM_io",
     listedAt: 1710776810,
+    deadUrl: true,
   },
   {
     id: "4315",
@@ -36626,6 +36653,7 @@ const data3_2: Protocol[] = [
     module: "vine/index.js",
     twitter: "Vine_Money",
     listedAt: 1711105995,
+    deadUrl: true,
   },
   {
     id: "4342",
@@ -37140,7 +37168,8 @@ const data3_2: Protocol[] = [
     dimensions: {
       fees: "swych",
       derivatives: "swych"
-    }
+    },
+    deadUrl: true,
   },
   {
     id: "4366",
@@ -38380,8 +38409,8 @@ const data3_2: Protocol[] = [
   {
     id: "4420",
     name: "Zest V1",
-    address: null,
-    symbol: "-",
+    address: "stacks:SP1A27KFY4XERQCCRCARCYD1CC5N7M6688BSYADJ7.zest-token",
+    symbol: "ZEST",
     url: "https://www.zestprotocol.com/",
     description:
       "Zest Protocol is an open-source, on-chain lending platform built for Bitcoin, allowing users to earn or borrow against their BTC",
@@ -39484,6 +39513,7 @@ const data3_2: Protocol[] = [
     twitter: "Zeepr_labs",
     github: ["Zeeprlabs"],
     listedAt: 1712833829,
+    deadUrl: true,
   },
   {
     id: "4470",
@@ -40632,6 +40662,7 @@ const data3_2: Protocol[] = [
     twitter: "BitGenie_io",
     parentProtocol: "parent#bitgenie",
     listedAt: 1714041978,
+    deadUrl: true,
   },
   {
     id: "4521",
@@ -40925,6 +40956,7 @@ const data3_2: Protocol[] = [
       "https://code4rena.com/reports/2024-01-salty",
     ],
     listedAt: 1714244611,
+    deadUrl: true,
   },
   {
     id: "4534",
@@ -41391,7 +41423,8 @@ const data3_2: Protocol[] = [
     dimensions: {
       fees: "tlx-finance",
       derivatives: "tlx-finance"
-    }
+    },
+    deadUrl: true,
   },
   {
     id: "4556",
@@ -41801,7 +41834,8 @@ const data3_2: Protocol[] = [
     dimensions: {
       fees: "bitgenie-amm",
       dexs: "bitgenie-amm"
-    }
+    },
+    deadUrl: true,
   },
   {
     id: "4574",
@@ -42096,6 +42130,7 @@ const data3_2: Protocol[] = [
     audit_links: ["https://quantoswap.org/img/PeckShield-Audit-Report-QuantoSwap-v1.0.pdf"],
     github: ["QuantoSwap"],
     listedAt: 1715595622,
+    deadUrl: true,
   },
   {
     id: "4588",
@@ -43821,6 +43856,7 @@ const data3_2: Protocol[] = [
     twitter: "Arcana_Finance",
     parentProtocol: "parent#tangible",
     listedAt: 1716474949,
+    deadUrl: true,
   },
   {
     id: "4668",
@@ -44524,7 +44560,8 @@ const data3_2: Protocol[] = [
     listedAt: 1717152505,
     dimensions: {
       dexs: "polkadex"
-    }
+    },
+    deadUrl: true,
   },
   {
     id: "4700",
@@ -44758,6 +44795,7 @@ const data3_2: Protocol[] = [
     forkedFromIds: ["2198"],
     github: ["Universal-Swaps"],
     listedAt: 1717507522,
+    deadUrl: true,
   },
   {
     id: "4711",
@@ -46370,6 +46408,7 @@ const data3_3: Protocol[] = [
       "https://raw.githubusercontent.com/peckshield/publications/master/audit_reports/PeckShield-Audit-Report-OTSea-v1.0.pdf",
     ],
     listedAt: 1718717971,
+    deadUrl: true,
   },
   {
     id: "4784",
@@ -46565,7 +46604,7 @@ const data3_3: Protocol[] = [
     name: "ScorePlay.xyz",
     address: null,
     symbol: "-",
-    url: "https://app.scoreplay.xyz/compete?chainId=50104",
+    url: "https://app.scoreplay.xyz/",
     description: "Scoreplay.xyz is a sports prediction market tailored for sports fans.",
     chain: "Base",
     logo: `${baseIconsUrl}/scoreplay.xyz.jpg`,
@@ -46938,6 +46977,7 @@ const data3_3: Protocol[] = [
     twitter: "RhoMarketsHQ",
     forkedFromIds: ["114"],
     listedAt: 1719231983,
+    deadUrl: true,
   },
   {
     id: "4809",
@@ -46957,6 +46997,7 @@ const data3_3: Protocol[] = [
     twitter: "AINNSwap",
     forkedFromIds: ["1883"],
     listedAt: 1719260482,
+    deadUrl: true,
   },
   {
     id: "4810",
@@ -47357,7 +47398,8 @@ const data3_3: Protocol[] = [
     listedAt: 1719616875,
     dimensions: {
       fees: "scoop"
-    }
+    },
+    deadUrl: true,
   },
   {
     id: "4828",
@@ -48383,7 +48425,10 @@ const data3_3: Protocol[] = [
     ],
     listedAt: 1720775830,
     dimensions: {
-      fees: "midas-rwa",
+      fees: {
+        adapter: "midas-rwa",
+        genuineSpikes: [["2025-12-03", "Midas mF-ONE suffered a 2% loss"]],
+      }
     },
   },
   {
@@ -48774,6 +48819,7 @@ const data3_3: Protocol[] = [
     audit_links: ["https://docs.sigmaswap.io/docs/audits/"],
     github: ["SigmaSwap-io"],
     listedAt: 1721145892,
+    deadUrl: true,
   },
   {
     id: "4891",
@@ -48856,6 +48902,7 @@ const data3_3: Protocol[] = [
     twitter: "CrustFinance",
     parentProtocol: "parent#crust-finance",
     listedAt: 1721218135,
+    deadUrl: true,
   },
   {
     id: "4895",
@@ -49479,6 +49526,7 @@ const data3_3: Protocol[] = [
     chains: ["Ethereum"],
     module: "dummy.js",
     twitter: "fasttoken_com",
+    deadUrl: true,
   },
   {
     id: "4924",
@@ -50037,6 +50085,7 @@ const data3_3: Protocol[] = [
     module: "predx/index.js",
     twitter: "PredX_AI",
     listedAt: 1722886946,
+    deadUrl: true,
   },
   {
     id: "4950",
@@ -50165,6 +50214,7 @@ const data3_3: Protocol[] = [
     module: "waxfusion/index.js",
     twitter: "waxfusion_io",
     listedAt: 1723024910,
+    deadUrl: true,
   },
   {
     id: "4956",
@@ -51234,6 +51284,7 @@ const data3_3: Protocol[] = [
     twitter: "waxdao_io",
     github: ["mdcryptonfts"],
     listedAt: 1723917469,
+    deadUrl: true,
   },
   {
     id: "5005",
@@ -51969,7 +52020,8 @@ const data3_3: Protocol[] = [
     treasury: "taolie.js",
     twitter: "TAOlie_SOL",
     audit_links: ["https://www.cyberscope.io/audits/taoliedepin"],
-    listedAt: 1724519313
+    listedAt: 1724519313,
+    deadUrl: true,
   },
   {
     id: "5040",
@@ -53333,7 +53385,8 @@ const data3_3: Protocol[] = [
     parentProtocol: "parent#orion-protocol",
     dimensions: {
       aggregators: "lumia"
-    }
+    },
+    deadUrl: true,
   },
   {
     id: "5099",
@@ -53353,7 +53406,8 @@ const data3_3: Protocol[] = [
     module: "swapline-lb-v2/index.js",
     twitter: "SwaplineDEX",
     parentProtocol: "parent#swapline",
-    listedAt: 1725456838
+    listedAt: 1725456838,
+    deadUrl: true,
   },
   {
     id: "5100",
@@ -53436,7 +53490,8 @@ const data3_3: Protocol[] = [
     listedAt: 1725543048,
     dimensions: {
       dexs: "renegade-fi"
-    }
+    },
+    deadUrl: true,
   },
   {
     id: "5104",
@@ -54071,7 +54126,8 @@ const data3_3: Protocol[] = [
     chains: ["Bahamut"],
     module: "vaultWin/index.js",
     twitter: "-",
-    listedAt: 1726068418
+    listedAt: 1726068418,
+    deadUrl: true,
   },
   {
     id: "5135",
@@ -55534,7 +55590,8 @@ const data3_3: Protocol[] = [
     chains: ["Neutron"],
     module: "amulet-finance/index.js",
     twitter: "AmuletFinance",
-    listedAt: 1727952215
+    listedAt: 1727952215,
+    deadUrl: true,
   },
   {
     id: "5201",
@@ -57613,7 +57670,8 @@ const data3_3: Protocol[] = [
     audit_links: ["https://github.com/sui-foundation/security-audits/blob/main/docs/mysten_deepbook_audit_final.pdf"],
     listedAt: 1730284544,
     dimensions: {
-      dexs: "deepbookv3-sui"
+      dexs: "deepbookv3-sui",
+      fees: "deepbook-v3"
     }
   },
   {
@@ -60188,7 +60246,8 @@ const data3_3: Protocol[] = [
     oraclesBreakdown: [ { name: "Pyth", type: "Primary", proof: [] } ],
     dimensions: {
       dexs: "catton"
-    }
+    },
+    deadUrl: true,
   },
   {
     id: "5410",
@@ -60735,7 +60794,8 @@ const data3_3: Protocol[] = [
     listedAt: 1732811087,
     dimensions: {
       dexs: "wagmi_ton"
-    }
+    },
+    deadUrl: true,
   },
   {
     id: "5437",
@@ -62233,7 +62293,8 @@ const data3_3: Protocol[] = [
     listedAt: 1734440918,
     dimensions: {
       dexs: "utyabswap"
-    }
+    },
+    deadUrl: true,
   },
   {
     id: "5509",
@@ -63159,7 +63220,8 @@ const data3_3: Protocol[] = [
     chains: ["Kopi"],
     module: "kopi/index.js",
     twitter: "kopi_money",
-    listedAt: 1735060779
+    listedAt: 1735060779,
+    deadUrl: true,
   },
   {
     id: "5554",

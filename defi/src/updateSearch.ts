@@ -128,6 +128,8 @@ interface ProtocolSearchSource {
   tvl?: number | null;
 }
 
+const HIDDEN_PROTOCOL_SEARCH_SLUGS = new Set(["akash-network"]);
+
 export const PAGES_INDEX_SETTINGS = {
   searchableAttributes: [
     "alias1",
@@ -283,6 +285,7 @@ export function buildProtocolSearchResult({
 }
 
 export function shouldSkipProtocolSearchResult(protocol: ProtocolSearchSource, chainNames: Set<string>) {
+  if (HIDDEN_PROTOCOL_SEARCH_SLUGS.has(sluggifyString(protocol.name))) return true;
   return protocol.category === "Canonical Bridge" && chainNames.has(protocol.name) && !protocol.tvl;
 }
 
@@ -751,8 +754,11 @@ export function buildDirectoryResults(
   const directoryResults: Array<SearchResult> = [];
 
   const deadUrlsBlacklist = new Set<string>();
+  const emptyChainNames = new Set<string>();
 
   for (const parent of tvlData.parentProtocols) {
+    if (shouldSkipProtocolSearchResult(parent, emptyChainNames)) continue;
+
     const route = `/protocol/${sluggifyString(parent.name)}`;
     const prevNames = previousNamesMap.get(parent.name);
     if (parent.referralUrl || parent.url)
@@ -776,6 +782,8 @@ export function buildDirectoryResults(
   }
 
   for (const protocol of tvlData.protocols) {
+    if (shouldSkipProtocolSearchResult(protocol, emptyChainNames)) continue;
+
     const prevNames = previousNamesMap.get(protocol.name) ?? [];
     const protocolUrl =
       protocol.referralUrl || protocol.url ? stripTrailingSlash(protocol.referralUrl ?? protocol.url) : "";
@@ -1006,6 +1014,8 @@ async function generateSearchList() {
   // Parent protocols are first-class protocol search results. Their child
   // protocol names are only needed for subpage routes like grouped yields.
   for (const parent of tvlData.parentProtocols) {
+    if (shouldSkipProtocolSearchResult(parent, metadataChainNames)) continue;
+
     const prevNames = previousNamesMap.get(parent.name);
     const result = buildProtocolSearchResult({
       id: `protocol_parent_${normalize(parent.name)}`,
