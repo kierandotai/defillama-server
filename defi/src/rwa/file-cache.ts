@@ -56,6 +56,13 @@ async function storeData(subPath: string, data: any): Promise<void> {
     }
 }
 
+async function storeDataStrict(subPath: string, data: any): Promise<void> {
+    const filePath = path.join(VERSIONED_CACHE_DIR, subPath);
+    const dirPath = path.dirname(filePath);
+    await ensureDirExists(dirPath);
+    await fs.promises.writeFile(filePath, JSON.stringify(data));
+}
+
 async function readFileData(subPath: string, options: {
     skipErrorLog?: boolean;
     readAsArrayBuffer?: boolean;
@@ -143,7 +150,7 @@ export async function readCronAlertState(): Promise<any> {
 }
 
 export async function storeCronAlertState(data: any): Promise<void> {
-    await storeData(CRON_ALERT_STATE_FILE, data);
+    await storeDataStrict(CRON_ALERT_STATE_FILE, data);
 }
 
 // Historical data per ID

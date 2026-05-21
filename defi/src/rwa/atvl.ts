@@ -16,12 +16,17 @@ export default async function main(ts: number = 0) {
   return finalData;
 }
 
-main().catch(async (error) => {
+main().then(() => process.exit(0)).catch(async (error) => {
   console.error('Error running the script: ', error);
-  await sendThrottledRwaAlert({
-    alertKey: 'atvlTopLevelError',
-    message: `Error running the script: ${error}`,
-    formatted: false,
-  });
-  process.exit(1);
-}).then(() => process.exit(0)); // ts-node defi/src/rwa/atvl.ts
+  try {
+    await sendThrottledRwaAlert({
+      alertKey: 'atvlTopLevelError',
+      message: `Error running the script: ${error}`,
+      formatted: false,
+    });
+  } catch (alertError) {
+    console.error('Failed to send RWA top-level error alert:', (alertError as any)?.message);
+  } finally {
+    process.exit(1);
+  }
+}); // ts-node defi/src/rwa/atvl.ts

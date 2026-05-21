@@ -854,11 +854,15 @@ export async function runAtvlForTimestamp(
         `ATVL Circuit Breaker Triggered - results NOT saved!\n${circuitBreaker.details.join("\n")}\n\n${contributorsBlock}`;
       console.error(message);
       logCircuitBreakerDiagnostics(finalData, circuitBreaker.trippedMetrics);
-      await sendThrottledRwaAlert({
-        alertKey: 'atvlCircuitBreaker',
-        message,
-        formatted: false,
-      });
+      try {
+        await sendThrottledRwaAlert({
+          alertKey: 'atvlCircuitBreaker',
+          message: truncateForDiscord(message),
+          formatted: false,
+        });
+      } catch (alertError) {
+        console.error('[circuit-breaker] failed to send alert:', (alertError as any)?.message);
+      }
       return finalData;
     }
   }
@@ -948,6 +952,16 @@ async function checkCircuitBreakers(
 // disk so we can post-mortem intermittent upstream data spikes.
 const TRIP_TOP_N = 10;
 const TRIP_TOP_CHAINS_PER_ROW = 3;
+const DISCORD_MESSAGE_SAFE_LIMIT = 1900;
+
+function truncateForDiscord(message: string, maxLength = DISCORD_MESSAGE_SAFE_LIMIT): string {
+  if (message.length <= maxLength) return message;
+  const suffix = "\n\n[truncated for Discord; full diagnostics are in stderr]";
+  const headLimit = Math.max(0, maxLength - suffix.length);
+  const lastNewline = message.lastIndexOf("\n", headLimit);
+  const cutAt = lastNewline > maxLength * 0.6 ? lastNewline : headLimit;
+  return `${message.slice(0, cutAt)}${suffix}`;
+}
 
 function fmtTripUsd(v: number): string {
   const abs = Math.abs(v);

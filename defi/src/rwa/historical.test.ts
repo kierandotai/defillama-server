@@ -46,10 +46,16 @@ function makeStorePayload() {
 describe('rwa historical store guard integration', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    (fetchLatestRwaRowsForIds as jest.Mock).mockResolvedValue({});
+    (storeHistoricalPG as jest.Mock).mockResolvedValue(undefined);
+    (sendThrottledRwaAlert as jest.Mock).mockResolvedValue({ status: 'sent' });
     delete process.env.RWA_ASSET_MOVE_GUARD_ENABLED;
     delete process.env.RWA_ASSET_MOVE_GUARD_BLOCK_WRITES;
     delete process.env.RWA_ASSET_MOVE_GUARD_MIN_DELTA;
     delete process.env.RWA_ASSET_MOVE_GUARD_MIN_RATIO;
+    delete process.env.RWA_ASSET_MOVE_GUARD_MAX_CONTRIBUTORS;
+    delete process.env.RWA_ASSET_MOVE_GUARD_MIN_INTERVAL_HOURS;
+    delete process.env.RWA_ALERT_MIN_INTERVAL_HOURS;
   });
 
   it('blocks only the suspicious asset before writing to PG', async () => {
@@ -89,5 +95,19 @@ describe('rwa historical store guard integration', () => {
     const [inserts] = (storeHistoricalPG as jest.Mock).mock.calls[0];
     expect(inserts.map((insert: any) => insert.id).sort()).toEqual(['89', '90']);
   });
-});
 
+  it('skips historical writes and alerts when the asset guard fails', async () => {
+    (fetchLatestRwaRowsForIds as jest.Mock).mockRejectedValueOnce(new Error('db unavailable'));
+
+    await storeHistorical(makeStorePayload() as any);
+
+    expect(storeHistoricalPG).not.toHaveBeenCalled();
+    expect(sendThrottledRwaAlert).toHaveBeenCalledTimes(1);
+    expect((sendThrottledRwaAlert as jest.Mock).mock.calls[0][0].alertKey).toBe(
+      'assetMoveGuardEvaluationFailure'
+    );
+    expect((sendThrottledRwaAlert as jest.Mock).mock.calls[0][0].message).toContain(
+      'historical DB writes skipped'
+    );
+  });
+});

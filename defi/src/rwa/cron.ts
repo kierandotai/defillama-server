@@ -96,16 +96,20 @@ interface RWAMetadata {
 }
 
 async function sendThrottledRwaHistoricalChartGuardAlert(message: string): Promise<void> {
-  await sendThrottledRwaAlert({
-    alertKey: RWA_HISTORICAL_CHART_GUARD_ALERT_KEY,
-    message,
-    minIntervalMs: RWA_CHART_ALERT_MIN_INTERVAL_MS,
-    onSuppress: (throttleUntil) => {
-      console.warn(
-        `[RWA cron] Suppressing repeated suspicious RWA historical chart alert until ${new Date(throttleUntil).toISOString()}`
-      );
-    },
-  });
+  try {
+    await sendThrottledRwaAlert({
+      alertKey: RWA_HISTORICAL_CHART_GUARD_ALERT_KEY,
+      message,
+      minIntervalMs: RWA_CHART_ALERT_MIN_INTERVAL_MS,
+      onSuppress: (throttleUntil) => {
+        console.warn(
+          `[RWA cron] Suppressing repeated suspicious RWA historical chart alert until ${new Date(throttleUntil).toISOString()}`
+        );
+      },
+    });
+  } catch (alertError) {
+    console.error('[RWA cron] Failed to send suspicious historical chart alert:', (alertError as any)?.message);
+  }
 }
 
 async function generateCurrentData(metadata: RWAMetadata[]): Promise<any[]> {
@@ -566,13 +570,17 @@ async function alertPGCacheRepairs(events: PGCacheRepairEvent[]): Promise<void> 
       return `- ${event.id}: ${event.reason}; cache rows ${event.existingRows} -> ${event.rebuiltRows}; incremental rows ${event.incrementalRows}; range ${range}`;
     });
   const suffix = events.length > lines.length ? `\n...and ${events.length - lines.length} more IDs` : '';
-  await sendThrottledRwaAlert({
-    alertKey: 'pgCacheRepairs',
-    message: `Rebuilt incomplete RWA pg-cache entries during incremental sync.\n` +
-    `This prevents old DB history from being dropped from /chart/asset and aggregate charts.\n` +
-    lines.join('\n') +
-    suffix,
-  });
+  try {
+    await sendThrottledRwaAlert({
+      alertKey: 'pgCacheRepairs',
+      message: `Rebuilt incomplete RWA pg-cache entries during incremental sync.\n` +
+      `This prevents old DB history from being dropped from /chart/asset and aggregate charts.\n` +
+      lines.join('\n') +
+      suffix,
+    });
+  } catch (alertError) {
+    console.error('[RWA cron] Failed to send pg-cache repair alert:', (alertError as any)?.message);
+  }
 }
 
 async function alertPGCacheProcessingErrors(errors: PGCacheProcessingError[]): Promise<void> {
@@ -581,12 +589,16 @@ async function alertPGCacheProcessingErrors(errors: PGCacheProcessingError[]): P
     .slice(0, RWA_CHART_ALERT_MAX_ITEMS)
     .map((error) => `- ${error.id}: ${error.message}`);
   const suffix = errors.length > lines.length ? `\n...and ${errors.length - lines.length} more IDs` : '';
-  await sendThrottledRwaAlert({
-    alertKey: 'pgCacheProcessingErrors',
-    message: `Failed to generate RWA pg-cache for ${errors.length} IDs; refusing to publish incomplete historical cache.\n` +
-    lines.join('\n') +
-    suffix,
-  });
+  try {
+    await sendThrottledRwaAlert({
+      alertKey: 'pgCacheProcessingErrors',
+      message: `Failed to generate RWA pg-cache for ${errors.length} IDs; refusing to publish incomplete historical cache.\n` +
+      lines.join('\n') +
+      suffix,
+    });
+  } catch (alertError) {
+    console.error('[RWA cron] Failed to send pg-cache processing error alert:', (alertError as any)?.message);
+  }
 }
 
 async function generatePGCache(): Promise<{ updatedIds: number }> {

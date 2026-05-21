@@ -102,6 +102,10 @@ function shouldRunAssetMoveGuard(item: any): boolean {
   return item?.governance !== true;
 }
 
+function getErrorMessage(error: any): string {
+  return error?.stack || error?.message || String(error);
+}
+
 // Store historical data
 export async function storeHistorical(
   res: { data: { [id: string]: AtvlPerIdData }, timestamp: number },
@@ -120,11 +124,15 @@ export async function storeHistorical(
         isNaN(insert.timestamp) || isNaN(Number(insert.id)) ||
         isNaN(insert.aggregatedefiactivetvl) || isNaN(insert.aggregatemcap) || isNaN(insert.aggregatedactivemcap)
       ) {
-        await sendThrottledRwaAlert({
-          alertKey: `historicalInvalidInsert:${id}`,
-          message: `ERROR ON ID ${id}`,
-          formatted: false,
-        });
+        try {
+          await sendThrottledRwaAlert({
+            alertKey: `historicalInvalidInsert:${id}`,
+            message: `ERROR ON ID ${id}`,
+            formatted: false,
+          });
+        } catch (alertError) {
+          console.error('[RWA historical] Failed to send invalid insert alert:', (alertError as any)?.message);
+        }
         throw new Error(`ERROR ON ID ${id}`);
       }
       inserts.push(insert);
@@ -136,21 +144,36 @@ export async function storeHistorical(
   let insertsToStore = inserts;
   const guardOptions = getRwaAssetMoveGuardOptionsFromEnv();
   if (!options.skipAssetMoveGuard && guardOptions.enabled) {
-    const guardedInserts = inserts.filter((insert) => shouldRunAssetMoveGuard(data[insert.id]));
-    const previousById = await fetchLatestRwaRowsForIds(guardedInserts.map((insert) => insert.id));
-    const labelsById: { [id: string]: string } = {};
-    for (const id of Object.keys(data)) labelsById[id] = getRwaLabel(data[id], id);
-    const guardResult = await filterRwaAssetMoveGuardInserts({
-      inserts: guardedInserts,
-      previousById,
-      labelsById,
-      options: guardOptions,
-    });
-    insertsToStore = inserts.filter((insert) => !guardResult.blockedIds.has(insert.id));
-    if (guardResult.blockedIds.size) {
-      console.warn(
-        `[RWA asset move guard] Blocked writes for ${guardResult.blockedIds.size} IDs: ${Array.from(guardResult.blockedIds).join(', ')}`
-      );
+    try {
+      const guardedInserts = inserts.filter((insert) => shouldRunAssetMoveGuard(data[insert.id]));
+      const previousById = await fetchLatestRwaRowsForIds(guardedInserts.map((insert) => insert.id));
+      const labelsById: { [id: string]: string } = {};
+      for (const id of Object.keys(data)) labelsById[id] = getRwaLabel(data[id], id);
+      const guardResult = await filterRwaAssetMoveGuardInserts({
+        inserts: guardedInserts,
+        previousById,
+        labelsById,
+        options: guardOptions,
+      });
+      insertsToStore = inserts.filter((insert) => !guardResult.blockedIds.has(insert.id));
+      if (guardResult.blockedIds.size) {
+        console.warn(
+          `[RWA asset move guard] Blocked writes for ${guardResult.blockedIds.size} IDs: ${Array.from(guardResult.blockedIds).join(', ')}`
+        );
+      }
+    } catch (error) {
+      const message = `RWA asset move guard failed while evaluating historical rows; historical DB writes skipped. Error: ${getErrorMessage(error)}`;
+      console.error(`[RWA asset move guard] ${message}`);
+      try {
+        await sendThrottledRwaAlert({
+          alertKey: 'assetMoveGuardEvaluationFailure',
+          message,
+          formatted: false,
+        });
+      } catch (alertError) {
+        console.error('[RWA asset move guard] Failed to send guard failure alert:', (alertError as any)?.message);
+      }
+      return;
     }
   }
 

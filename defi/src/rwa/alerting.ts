@@ -29,6 +29,7 @@ export async function sendRwaAlert(
     await sendMessage(fullMessage, process.env.RWA_WEBHOOK, formatted);
   } catch (e) {
     console.error('Failed to send RWA Discord alert:', (e as any)?.message);
+    throw e;
   }
 }
 
