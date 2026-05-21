@@ -17,8 +17,6 @@ import {
   getPGSyncMetadata,
   setPGSyncMetadata,
   storeFlowsForId,
-  readCronAlertState,
-  storeCronAlertState,
 } from './file-cache';
 import { initPG, fetchCurrentPG, fetchMetadataPG, fetchAllDailyRecordsPG, fetchMaxUpdatedAtPG, fetchAllDailyIdsPG, fetchDailyRecordsForIdPG, fetchDailyRecordsWithChainsPG, fetchDailyRecordsWithChainsForIdPG, computeFlowSeries, FlowRow } from './db';
 
@@ -27,8 +25,7 @@ import { rwaSlug, toFiniteNumberOrZero, smoothHistoricalData, normalizeRwaMetada
 import { parentProtocolsById } from '../protocols/parentProtocols';
 import { protocolsById } from '../protocols/data';
 import { getChainLabelFromKey } from '../utils/normalizeChain';
-import { sendMessage } from '../utils/discord';
-import { sendThrottledRwaCronAlert } from './cronAlerts';
+import { sendThrottledRwaAlert } from './alerting';
 import {
   formatRwaHistoricalChartGuardReport,
   formatUsd,
@@ -98,28 +95,11 @@ interface RWAMetadata {
   data: any;
 }
 
-async function sendRwaCronAlert(message: string): Promise<void> {
-  const fullMessage = `[RWA cron] ${message}`;
-  if (!process.env.RWA_WEBHOOK) {
-    console.warn(fullMessage);
-    return;
-  }
-
-  try {
-    await sendMessage(fullMessage, process.env.RWA_WEBHOOK, true);
-  } catch (e) {
-    console.error('Failed to send RWA cron Discord alert:', (e as any)?.message);
-  }
-}
-
 async function sendThrottledRwaHistoricalChartGuardAlert(message: string): Promise<void> {
-  await sendThrottledRwaCronAlert({
+  await sendThrottledRwaAlert({
     alertKey: RWA_HISTORICAL_CHART_GUARD_ALERT_KEY,
     message,
     minIntervalMs: RWA_CHART_ALERT_MIN_INTERVAL_MS,
-    readState: readCronAlertState,
-    storeState: storeCronAlertState,
-    sendAlert: sendRwaCronAlert,
     onSuppress: (throttleUntil) => {
       console.warn(
         `[RWA cron] Suppressing repeated suspicious RWA historical chart alert until ${new Date(throttleUntil).toISOString()}`
@@ -586,12 +566,13 @@ async function alertPGCacheRepairs(events: PGCacheRepairEvent[]): Promise<void> 
       return `- ${event.id}: ${event.reason}; cache rows ${event.existingRows} -> ${event.rebuiltRows}; incremental rows ${event.incrementalRows}; range ${range}`;
     });
   const suffix = events.length > lines.length ? `\n...and ${events.length - lines.length} more IDs` : '';
-  await sendRwaCronAlert(
-    `Rebuilt incomplete RWA pg-cache entries during incremental sync.\n` +
+  await sendThrottledRwaAlert({
+    alertKey: 'pgCacheRepairs',
+    message: `Rebuilt incomplete RWA pg-cache entries during incremental sync.\n` +
     `This prevents old DB history from being dropped from /chart/asset and aggregate charts.\n` +
     lines.join('\n') +
-    suffix
-  );
+    suffix,
+  });
 }
 
 async function alertPGCacheProcessingErrors(errors: PGCacheProcessingError[]): Promise<void> {
@@ -600,11 +581,12 @@ async function alertPGCacheProcessingErrors(errors: PGCacheProcessingError[]): P
     .slice(0, RWA_CHART_ALERT_MAX_ITEMS)
     .map((error) => `- ${error.id}: ${error.message}`);
   const suffix = errors.length > lines.length ? `\n...and ${errors.length - lines.length} more IDs` : '';
-  await sendRwaCronAlert(
-    `Failed to generate RWA pg-cache for ${errors.length} IDs; refusing to publish incomplete historical cache.\n` +
+  await sendThrottledRwaAlert({
+    alertKey: 'pgCacheProcessingErrors',
+    message: `Failed to generate RWA pg-cache for ${errors.length} IDs; refusing to publish incomplete historical cache.\n` +
     lines.join('\n') +
-    suffix
-  );
+    suffix,
+  });
 }
 
 async function generatePGCache(): Promise<{ updatedIds: number }> {

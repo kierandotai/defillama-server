@@ -45,7 +45,7 @@ import {
   toFiniteNumberOrNull,
   toFixedNumber,
 } from "./utils";
-import { sendMessage } from "../utils/discord";
+import { sendThrottledRwaAlert } from "./alerting";
 
 // ── Internal helpers (copied from atvl.ts — identical logic) ────────
 
@@ -786,7 +786,7 @@ export async function prepareAtvlContext(ids: string[] = []): Promise<AtvlContex
 export async function runAtvlForTimestamp(
   ts: number,
   context: AtvlContext,
-  options: { skipCircuitBreaker?: boolean; storeResults?: boolean } = {}
+  options: { skipCircuitBreaker?: boolean; skipAssetMoveGuard?: boolean; storeResults?: boolean } = {}
 ): Promise<{ [id: string]: any }> {
   const timestamp = ts != 0 ? getTimestampAtStartOfDay(ts) : 0;
   const { tokensSortedByChain, tokenToProjectMap, projectIdsMap, coingeckoIdToRwaIds, ids } = context;
@@ -854,14 +854,23 @@ export async function runAtvlForTimestamp(
         `ATVL Circuit Breaker Triggered - results NOT saved!\n${circuitBreaker.details.join("\n")}\n\n${contributorsBlock}`;
       console.error(message);
       logCircuitBreakerDiagnostics(finalData, circuitBreaker.trippedMetrics);
-      await sendMessage(message, process.env.RWA_WEBHOOK!, false);
+      await sendThrottledRwaAlert({
+        alertKey: 'atvlCircuitBreaker',
+        message,
+        formatted: false,
+      });
       return finalData;
     }
   }
 
   if (options.storeResults) {
     const tStore = performance.now();
-    await Promise.all([timestamp == 0 ? storeMetadata(res) : Promise.resolve(), storeHistorical(res as any)]);
+    await Promise.all([
+      timestamp == 0 ? storeMetadata(res) : Promise.resolve(),
+      storeHistorical(res as any, {
+        skipAssetMoveGuard: options.skipAssetMoveGuard || ids.length > 0 || ts != 0,
+      }),
+    ]);
     console.log(`[timer] storeResults: ${((performance.now() - tStore) / 1000).toFixed(1)}s`);
   }
 

@@ -386,6 +386,30 @@ export async function fetchCurrentPG(): Promise<{ id: string; timestamp: number;
         return copy
     }) as any
 }
+
+export async function fetchLatestRwaRowsForIds(ids: string[]): Promise<{ [id: string]: any }> {
+    const uniqueIds = [...new Set(ids.map((id) => String(id)).filter(Boolean))];
+    if (!uniqueIds.length) return {};
+
+    const rows = await HOURLY_RWA_DATA.sequelize!.query(
+        `SELECT DISTINCT ON (id)
+            id, timestamp, mcap, activemcap, aggregatedefiactivetvl, aggregatemcap, aggregatedactivemcap
+         FROM "${HOURLY_RWA_DATA.getTableName()}"
+         WHERE id IN (:ids)
+         ORDER BY id, timestamp DESC`,
+        { replacements: { ids: uniqueIds }, type: QueryTypes.SELECT }
+    ) as any[];
+
+    const byId: { [id: string]: any } = {};
+    for (const row of rows) {
+        byId[row.id] = {
+            ...row,
+            mcap: parseJsonSafe(row.mcap),
+            activemcap: parseJsonSafe(row.activemcap),
+        };
+    }
+    return byId;
+}
 // Fetch all daily records, optionally filtered by updated_at timestamp
 export async function fetchAllDailyRecordsPG(updatedAfter?: Date): Promise<any[]> {
     const whereClause = updatedAfter

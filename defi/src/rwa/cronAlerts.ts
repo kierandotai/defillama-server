@@ -30,7 +30,7 @@ export function getRwaCronAlertThrottleUntil(
 ): number | null {
   if (!Number.isFinite(lastSentAt) || !Number.isFinite(now) || !Number.isFinite(minIntervalMs)) return null;
   if (minIntervalMs <= 0) return null;
-  const nextAllowedAt = lastSentAt + minIntervalMs;
+  const nextAllowedAt = Number(lastSentAt) + minIntervalMs;
   if (!Number.isFinite(nextAllowedAt)) return null;
   return now < nextAllowedAt ? nextAllowedAt : null;
 }
