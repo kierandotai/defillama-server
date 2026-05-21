@@ -386,6 +386,48 @@ export async function fetchCurrentPG(): Promise<{ id: string; timestamp: number;
         return copy
     }) as any
 }
+
+// Latest hourly row per id, with the aggregate columns needed to build a
+// live-tip chart point. Same DISTINCT-ON-(id)-DESC shape as fetchCurrentPG,
+// but also returns the pre-aggregated sums so the chart-build pass doesn't
+// have to re-sum the JSON columns.
+export interface ChartTipRow {
+    id: string;
+    timestamp: number;
+    mcap: { [chain: string]: any };
+    activemcap: { [chain: string]: any };
+    defiactivetvl: { [chain: string]: any };
+    totalsupply: { [chain: string]: any };
+    aggregatemcap: number;
+    aggregatedactivemcap: number;
+    aggregatedefiactivetvl: number;
+}
+export async function fetchLatestHourlyForChartTipsPG(): Promise<{ [id: string]: ChartTipRow }> {
+    const rows = await HOURLY_RWA_DATA.sequelize!.query(
+        `SELECT DISTINCT ON (id)
+            id, timestamp,
+            mcap, activemcap, defiactivetvl, totalsupply,
+            aggregatemcap, aggregatedactivemcap, aggregatedefiactivetvl
+         FROM "${HOURLY_RWA_DATA.getTableName()}"
+         ORDER BY id, timestamp DESC`,
+        { type: QueryTypes.SELECT }
+    ) as any[];
+    const out: { [id: string]: ChartTipRow } = {};
+    for (const r of rows) {
+        out[r.id] = {
+            id: r.id,
+            timestamp: Number(r.timestamp),
+            mcap: parseJsonSafe(r.mcap),
+            activemcap: parseJsonSafe(r.activemcap),
+            defiactivetvl: parseJsonSafe(r.defiactivetvl),
+            totalsupply: parseJsonSafe(r.totalsupply),
+            aggregatemcap: Number(r.aggregatemcap) || 0,
+            aggregatedactivemcap: Number(r.aggregatedactivemcap) || 0,
+            aggregatedefiactivetvl: Number(r.aggregatedefiactivetvl) || 0,
+        };
+    }
+    return out;
+}
 // Fetch all daily records, optionally filtered by updated_at timestamp
 export async function fetchAllDailyRecordsPG(updatedAfter?: Date): Promise<any[]> {
     const whereClause = updatedAfter

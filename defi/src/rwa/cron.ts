@@ -18,7 +18,8 @@ import {
   setPGSyncMetadata,
   storeFlowsForId,
 } from './file-cache';
-import { initPG, fetchCurrentPG, fetchMetadataPG, fetchAllDailyRecordsPG, fetchMaxUpdatedAtPG, fetchAllDailyIdsPG, fetchDailyRecordsForIdPG, fetchDailyRecordsWithChainsPG, fetchDailyRecordsWithChainsForIdPG, computeFlowSeries, FlowRow } from './db';
+import { initPG, fetchCurrentPG, fetchMetadataPG, fetchAllDailyRecordsPG, fetchMaxUpdatedAtPG, fetchAllDailyIdsPG, fetchDailyRecordsForIdPG, fetchDailyRecordsWithChainsPG, fetchDailyRecordsWithChainsForIdPG, fetchLatestHourlyForChartTipsPG, ChartTipRow, computeFlowSeries, FlowRow } from './db';
+import { getTimestampAtStartOfDay } from '../utils/date';
 
 import { shouldEmitRwaBreakdownItem } from './chartBreakdown';
 import { rwaSlug, toFiniteNumberOrZero, smoothHistoricalData, normalizeRwaMetadataForApiInPlace } from './utils';
@@ -165,6 +166,41 @@ export function trimLeadingZeros<T extends { timestamp: number; onChainMcap: num
   return data;
 }
 
+// Live-tip handling: charts are built from DAILY (start-of-day timestamps),
+// but we append one extra point per id from the latest HOURLY row so the
+// rightmost point reflects the latest cron-tick values, not the early-morning
+// DAILY snapshot that the closest-to-midnight gate can pin us to.
+// stripLiveTips removes any prior tip before re-building so points stay
+// idempotent across runs (cleanly daily-aligned + at most one trailing tip).
+export function stripLiveTips<T extends { timestamp: number }>(data: T[]): T[] {
+  if (!data || data.length === 0) return data;
+  return data.filter((r) => r.timestamp === getTimestampAtStartOfDay(r.timestamp));
+}
+
+function appendChartTip(
+  dailyChart: Array<{ timestamp: number; onChainMcap: number; defiActiveTvl: number; activeMcap?: number }>,
+  tip: ChartTipRow | undefined,
+  hasActiveMcapData: boolean,
+): Array<{ timestamp: number; onChainMcap: number; defiActiveTvl: number; activeMcap?: number }> {
+  if (!tip) return dailyChart;
+  // If the tip is for the same UTC day as the last daily point, drop the daily
+  // point — the hourly tip is strictly fresher than the start-of-day daily row,
+  // and keeping both would leave a visible step between the (possibly stale)
+  // 00:00 daily value and the current tip value.
+  const tipDayStart = getTimestampAtStartOfDay(tip.timestamp);
+  const lastDailyTs = dailyChart.length > 0 ? dailyChart[dailyChart.length - 1].timestamp : 0;
+  if (lastDailyTs === tipDayStart) dailyChart.pop();
+  const newLast = dailyChart.length > 0 ? dailyChart[dailyChart.length - 1].timestamp : 0;
+  if (tip.timestamp <= newLast) return dailyChart;
+  dailyChart.push({
+    timestamp: tip.timestamp,
+    onChainMcap: tip.aggregatemcap,
+    defiActiveTvl: tip.aggregatedefiactivetvl,
+    activeMcap: hasActiveMcapData ? tip.aggregatedactivemcap : undefined,
+  });
+  return dailyChart;
+}
+
 async function generateAllHistoricalDataIncremental(metadata: RWAMetadata[]): Promise<{ updatedIds: number; totalRecords: number }> {
   console.log('Generating historical data incrementally...');
   const startTime = Date.now();
@@ -184,17 +220,17 @@ async function generateAllHistoricalDataIncremental(metadata: RWAMetadata[]): Pr
   let updatedIds = 0;
   let totalRecords = 0;
 
+  // Latest HOURLY row per id provides a live tip that's appended to the
+  // (daily-aligned) chart series after smoothing. Fetched once upfront so the
+  // per-id loop is just a map lookup.
+  const latestHourlyTips = await fetchLatestHourlyForChartTipsPG();
+
   if (lastSyncTimestamp) {
     // Incremental sync: fetch only updated records
     console.log(`Incremental sync: fetching records updated after ${lastSyncTimestamp.toISOString()}`);
 
     const dailyRecords = await fetchAllDailyRecordsPG(lastSyncTimestamp);
     console.log(`Fetched ${dailyRecords.length} updated daily records from database`);
-
-    if (dailyRecords.length === 0) {
-      console.log('No new records to process');
-      return { updatedIds: 0, totalRecords: 0 };
-    }
 
     // Group records by ID
     const recordsById: { [id: string]: any[] } = {};
@@ -212,16 +248,22 @@ async function generateAllHistoricalDataIncremental(metadata: RWAMetadata[]): Pr
       });
     });
 
-    const ids = Object.keys(recordsById);
-    console.log(`Processing ${ids.length} unique IDs with updates`);
+    // Process the union of (ids with new daily rows) and (ids with a hourly tip)
+    // so the tip stays fresh on every cron tick, even for ids whose daily row
+    // didn't change this run.
+    const ids = Array.from(new Set([...Object.keys(recordsById), ...Object.keys(latestHourlyTips)]));
+    console.log(`Processing ${ids.length} unique IDs (with daily updates or hourly tip)`);
 
-    // Process each ID with updates
     for (const id of ids) {
       try {
-        const newRecords = recordsById[id];
+        const newRecords = recordsById[id] ?? [];
         const existingData = await readHistoricalDataForId(id);
-        const mergedData = mergeHistoricalData(existingData, newRecords);
-        await storeHistoricalDataForId(id, trimLeadingZeros(smoothHistoricalData(mergedData)));
+        if ((!existingData || existingData.length === 0) && newRecords.length === 0) continue;
+        const existingNoTip = stripLiveTips(existingData ?? []);
+        const mergedData = mergeHistoricalData(existingNoTip, newRecords);
+        const dailyOnly = trimLeadingZeros(smoothHistoricalData(mergedData));
+        const withTip = appendChartTip(dailyOnly, latestHourlyTips[id], activeMcapDataMap[id] ?? false);
+        await storeHistoricalDataForId(id, withTip);
         updatedIds++;
         totalRecords += newRecords.length;
       } catch (e) {
@@ -250,7 +292,9 @@ async function generateAllHistoricalDataIncremental(metadata: RWAMetadata[]): Pr
           activeMcap: activeMcapData ? toFiniteNumberOrZero(record.aggregatedactivemcap) : undefined,
         }));
 
-        await storeHistoricalDataForId(id, trimLeadingZeros(smoothHistoricalData(historicalData)));
+        const dailyOnly = trimLeadingZeros(smoothHistoricalData(historicalData));
+        const withTip = appendChartTip(dailyOnly, latestHourlyTips[id], activeMcapData);
+        await storeHistoricalDataForId(id, withTip);
         updatedIds++;
         totalRecords += records.length;
 
