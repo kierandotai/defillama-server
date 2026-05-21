@@ -21,6 +21,8 @@ async function getRate(): Promise<number> {
 }
 
 export async function agvt(timestamp: number = 0): Promise<Write[]> {
+  if (timestamp != 0) throw new Error(`AGVT adapter only works for current`);
+
   const rate = await getRate();
   // The exchange contract redeems agvt_amount * 10_000_000 / rate USDC.
   const price = RATE_SCALE / rate;
