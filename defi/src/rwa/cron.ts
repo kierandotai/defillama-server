@@ -17,6 +17,8 @@ import {
   getPGSyncMetadata,
   setPGSyncMetadata,
   storeFlowsForId,
+  readCronAlertState,
+  storeCronAlertState,
 } from './file-cache';
 import { initPG, fetchCurrentPG, fetchMetadataPG, fetchAllDailyRecordsPG, fetchMaxUpdatedAtPG, fetchAllDailyIdsPG, fetchDailyRecordsForIdPG, fetchDailyRecordsWithChainsPG, fetchDailyRecordsWithChainsForIdPG, computeFlowSeries, FlowRow } from './db';
 
@@ -26,6 +28,7 @@ import { parentProtocolsById } from '../protocols/parentProtocols';
 import { protocolsById } from '../protocols/data';
 import { getChainLabelFromKey } from '../utils/normalizeChain';
 import { sendMessage } from '../utils/discord';
+import { sendThrottledRwaCronAlert } from './cronAlerts';
 import {
   formatRwaHistoricalChartGuardReport,
   formatUsd,
@@ -41,6 +44,9 @@ const RWA_CHART_ALERT_MIN_DAY_RATIO = Number(process.env.RWA_CHART_ALERT_MIN_DAY
 const RWA_CHART_ALERT_MAX_ITEMS = Number(process.env.RWA_CHART_ALERT_MAX_ITEMS ?? 12);
 const RWA_CHART_ALERT_LOOKBACK_DAYS = Number(process.env.RWA_CHART_ALERT_LOOKBACK_DAYS ?? 1);
 const RWA_CHART_ALERT_FAIL_ON_SUSPICIOUS = process.env.RWA_CHART_ALERT_FAIL_ON_SUSPICIOUS !== 'false';
+const RWA_CHART_ALERT_MIN_INTERVAL_HOURS = Number(process.env.RWA_CHART_ALERT_MIN_INTERVAL_HOURS ?? 4);
+const RWA_CHART_ALERT_MIN_INTERVAL_MS = RWA_CHART_ALERT_MIN_INTERVAL_HOURS * 60 * 60 * 1000;
+const RWA_HISTORICAL_CHART_GUARD_ALERT_KEY = 'historicalChartGuard';
 
 interface RWACurrentData {
   id: string;
@@ -104,6 +110,22 @@ async function sendRwaCronAlert(message: string): Promise<void> {
   } catch (e) {
     console.error('Failed to send RWA cron Discord alert:', (e as any)?.message);
   }
+}
+
+async function sendThrottledRwaHistoricalChartGuardAlert(message: string): Promise<void> {
+  await sendThrottledRwaCronAlert({
+    alertKey: RWA_HISTORICAL_CHART_GUARD_ALERT_KEY,
+    message,
+    minIntervalMs: RWA_CHART_ALERT_MIN_INTERVAL_MS,
+    readState: readCronAlertState,
+    storeState: storeCronAlertState,
+    sendAlert: sendRwaCronAlert,
+    onSuppress: (throttleUntil) => {
+      console.warn(
+        `[RWA cron] Suppressing repeated suspicious RWA historical chart alert until ${new Date(throttleUntil).toISOString()}`
+      );
+    },
+  });
 }
 
 async function generateCurrentData(metadata: RWAMetadata[]): Promise<any[]> {
@@ -1100,7 +1122,7 @@ async function alertSuspiciousRwaHistoricalCharts(
   if (!hasSuspiciousRwaHistoricalChartReport(report)) return;
 
   const message = formatRwaHistoricalChartGuardReport(report, metadata, options);
-  await sendRwaCronAlert(message);
+  await sendThrottledRwaHistoricalChartGuardAlert(message);
   if (RWA_CHART_ALERT_FAIL_ON_SUSPICIOUS) {
     throw new Error('Suspicious RWA historical chart shape detected; refusing to publish aggregate historical chart cache');
   }

@@ -111,6 +111,7 @@ export function getCacheVersion(): string {
 // Sync metadata for tracking incremental updates
 const SYNC_METADATA_FILE = 'sync-metadata.json';
 const PG_SYNC_METADATA_FILE = 'pg_sync-metadata.json';
+const CRON_ALERT_STATE_FILE = 'alert-state.json';
 
 interface SyncMetadata {
     lastSyncTimestamp: string | null;
@@ -137,6 +138,13 @@ export async function setPGSyncMetadata(metadata: SyncMetadata): Promise<void> {
     await storeRouteData(PG_SYNC_METADATA_FILE, metadata);
 }
 
+export async function readCronAlertState(): Promise<any> {
+    return readFileData(CRON_ALERT_STATE_FILE, { skipErrorLog: true });
+}
+
+export async function storeCronAlertState(data: any): Promise<void> {
+    await storeData(CRON_ALERT_STATE_FILE, data);
+}
 
 // Historical data per ID
 export async function storeHistoricalDataForId(id: string, data: any[]): Promise<void> {
