@@ -722,6 +722,64 @@ function generateHtml(results: IdResult[]): string {
 </html>`;
 }
 
+// ── Pre-flight ───────────────────────────────────────────────────────
+// SDK supply adapters that THROW on a historical timestamp. atvlRefill's
+// getTotalSupplies catches the throw silently, so any chain in this set has
+// its entire mcap leg dropped from historical refills. RWAs with contracts
+// on these chains MUST be backfilled separately (using a Dune-supply CSV +
+// the per-chain backfill script) before or after refillParallel runs.
+//
+// Source: defi/l2/utils.ts — each entry that calls `if (timestamp) throw ...`.
+const HISTORICAL_INCOMPATIBLE_CHAINS = new Set([
+  "stellar", "aptos", "solana", "sui", "starknet", "osmosis", "provenance",
+]);
+const CHAIN_TO_BACKFILL_SCRIPT: Record<string, string> = {
+  stellar: "defi/src/rwa/cli/backfillStellarRwaMcap.ts",
+  solana: "defi/src/rwa/cli/backfillSolanaRwaMcap.ts",
+};
+
+export async function preflightHistoricalIncompatibleChains(ids: string[]): Promise<void> {
+  const context = await prepareAtvlContext(ids);
+  interface Hit { id: string; ticker: string; chains: string[] }
+  const hits: Hit[] = [];
+  for (const id of ids) {
+    const entry = (context.finalData as any)[id];
+    if (!entry?.contracts) continue;
+    const incompatible: string[] = [];
+    for (const chainRaw of Object.keys(entry.contracts)) {
+      const chain = String(chainRaw).toLowerCase();
+      if (HISTORICAL_INCOMPATIBLE_CHAINS.has(chain) && !incompatible.includes(chain)) {
+        incompatible.push(chain);
+      }
+    }
+    if (incompatible.length > 0) {
+      hits.push({ id, ticker: entry.ticker ?? entry.name ?? "(unnamed)", chains: incompatible });
+    }
+  }
+  if (hits.length === 0) {
+    console.log(`  Pre-flight: ✓ no historical-incompatible chains in selected IDs`);
+    return;
+  }
+  console.log("");
+  console.log("  ⚠️  Pre-flight WARNING — assets with throw-on-historical chains");
+  console.log("  These chains will be SILENTLY DROPPED from historical refills by");
+  console.log("  atvlRefill's getTotalSupplies catch. The affected mcap leg becomes $0,");
+  console.log("  which can cause large step-downs / step-ups when the daily cron later");
+  console.log("  fetches the live 'now' supply (see BENJI/BRZ jump on 2026-05-22).");
+  console.log("");
+  for (const h of hits) {
+    const scripts = h.chains
+      .map((c) => CHAIN_TO_BACKFILL_SCRIPT[c] ?? `(no backfill script for ${c})`)
+      .join(" + ");
+    console.log(`    • ${h.ticker.padEnd(12)} (id=${h.id})  chains: [${h.chains.join(", ")}]`);
+    console.log(`        run first: ${scripts}`);
+  }
+  console.log("");
+  console.log(`  This warning is informational — refillParallel will continue.`);
+  console.log(`  Use a per-chain backfill script BEFORE or AFTER this run to fill the gap.`);
+  console.log("");
+}
+
 // ── Main ─────────────────────────────────────────────────────────────
 async function main() {
   const t0 = Date.now();
@@ -734,6 +792,8 @@ async function main() {
   console.log(`  Date range: ${START_DATE} to ${END_DATE}`);
   console.log(`  Concurrency: backfill=${BACKFILL_CONCURRENCY}, ids=${ID_CONCURRENCY}, priceFetch=${PRICE_FETCH_CONCURRENCY}`);
   console.log(`${"=".repeat(60)}`);
+
+  await preflightHistoricalIncompatibleChains(IDS);
 
   // Phase 1: Backfill
   process.env.RWA_DRY_RUN = "false";
@@ -791,5 +851,7 @@ async function main() {
   process.exit();
 }
 
-main().catch((e) => { console.error(e); process.exit(1); });
+if (require.main === module) {
+  main().catch((e) => { console.error(e); process.exit(1); });
+}
 // caffeinate -i ts-node defi/src/rwa/cli/refillParallel.ts

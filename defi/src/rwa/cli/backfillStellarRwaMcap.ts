@@ -1,26 +1,39 @@
 /**
  * ============================================================================
- * Backfill historical onchain mcap / activemcap / totalsupply for a Solana RWA
+ * Backfill historical onchain mcap / activemcap / totalsupply for a Stellar RWA
  * ============================================================================
  *
  * Why this exists
  * ---------------
- * defillama-server has no Solana archive RPC, so the live cron only writes data
- * from the day an adapter is onboarded. Anything before that renders as 0 mcap
- * on the chart. Dune's `tokens_solana.transfers` table indexes Solana from
- * genesis, so cumulative `mint - burn` per day gives us the full historical
- * supply curve. Multiply by historical price (coins API) → mcap.
+ * defi/l2/utils.ts:getStellarSupplies throws on any historical timestamp
+ * (`timestamp incompatible with Stellar adapter!`), so refillParallel.ts and any
+ * historical refill silently drops the entire Stellar leg via the swallowed
+ * catch in atvlRefill.ts:getTotalSupplies. That left BENJI and BRZ with a
+ * Stellar value of 0 across the May 11-21 rewrite, producing the +$600M cliff
+ * users saw at the May 22 cron tick when the live "now" supply came back.
+ *
+ * Dune's `stellar.history_effects` indexes every ledger-effect since genesis,
+ * including `account_debited` / `account_credited` on the issuer's own account.
+ * Because a classic-asset issuer doesn't hold a trust line on its own asset,
+ * supply ≡ -issuer_balance, so per-day cumulative
+ * `account_debited - account_credited` ON the issuer's account gives the full
+ * supply curve. This catches `payment`, `path_payment_strict_send/receive`,
+ * `claim_claimable_balance`, `account_merge` — any op type that moves the
+ * issuer's balance. Multiply by historical price (coins API) → mcap. Same model
+ * as backfillSolanaRwaMcap.ts — read the prose there for the why behind
+ * forward-fill, isMissing semantics, the dual updateOnDuplicate buckets, and
+ * the dry-run preview's accept/reject criteria.
  *
  * What this script writes
  * -----------------------
- * - `mcap.solana`        ← supply × price   (only if missing or 0)
- * - `activemcap.solana`  ← same as mcap     (only if missing or 0)
- * - `totalsupply.solana` ← supply           (only if missing or 0)
+ * - `mcap.stellar`        ← supply × price   (only if missing or 0)
+ * - `activemcap.stellar`  ← same as mcap     (only if missing or 0)
+ * - `totalsupply.stellar` ← supply           (only if missing or 0)
  * - `aggregatemcap` / `aggregatedactivemcap` recomputed from the merged chain map.
  *
  * What it never touches
  * ---------------------
- * - Existing solana values that are already > 0 (live cron is authoritative).
+ * - Existing stellar values that are already > 0 (live cron is authoritative).
  * - Other-chain entries inside any JSON column (preserved byte-for-byte).
  * - `defiactivetvl` and `aggregatedefiactivetvl`.
  *
@@ -32,156 +45,125 @@
  *     Save as DUNE_API_KEY env var.
  *
  * 2.  In the Dune UI, save the SQL below as a new query with two parameters:
- *       mint     (Text, required)
- *       decimals (Number, required)
+ *       asset_code   (Text, required)
+ *       asset_issuer (Text, required)
  *
  *       WITH events AS (
- *         SELECT date_trunc('day', block_time) AS day,
- *                SUM(CASE WHEN action = 'mint' THEN amount
- *                         WHEN action = 'burn' THEN -amount END) AS net_change
- *         FROM tokens_solana.transfers
- *         WHERE token_mint_address = '{{mint}}'
- *           AND action IN ('mint', 'burn')
+ *         SELECT
+ *           DATE_TRUNC('day', closed_at) AS day,
+ *           SUM(CASE
+ *             WHEN type_string = 'account_debited'  THEN amount     -- issuer debited = supply ↑
+ *             WHEN type_string = 'account_credited' THEN -amount    -- issuer credited = supply ↓
+ *             ELSE 0
+ *           END) AS net_change
+ *         FROM stellar.history_effects
+ *         WHERE asset_code   = '{{asset_code}}'
+ *           AND asset_issuer = '{{asset_issuer}}'
+ *           AND address      = '{{asset_issuer}}'  -- only effects on the issuer's own account
+ *           AND type_string IN ('account_debited', 'account_credited')
  *         GROUP BY 1
  *       )
  *       SELECT day,
- *              SUM(net_change) OVER (ORDER BY day) / pow(10, {{decimals}}) AS supply
+ *              SUM(net_change) OVER (ORDER BY day) AS supply
  *       FROM events
  *       ORDER BY day;
  *
- *     Note the action labels are 'mint' / 'burn', NOT 'mintTo'. If you ever see
- *     the supply curve go negative, run this diagnostic to find the actual labels:
- *       SELECT action, COUNT(*), SUM(amount) / pow(10, <decimals>)
- *       FROM tokens_solana.transfers
- *       WHERE token_mint_address = '<mint>'
- *       GROUP BY action ORDER BY 2 DESC;
+ *     Note the query ID from the URL (e.g. dune.com/queries/XXXXXXX).
  *
- *     Note the query ID from the URL (e.g. dune.com/queries/7435636).
+ *     Sanity check before you trust the curve: run the query for an actively-
+ *     traded asset (e.g. BENJI-GBHNGLLIE3KWGKCHIKMHJ5HVZHYIK7WTBE4QF5PLAKL4CJGSEU7HZIW5)
+ *     and compare the LAST row's `supply` to the live Horizon value (you can
+ *     get this from showRwaMcapBreakdown.ts). The previous ops-only formulation
+ *     was 8% off on BENJI; the effects-based query should be exact (verified
+ *     to within ~0.001%). If off by exactly 1e7 the column is stroops, divide
+ *     by 1e7 in the SELECT.
  *
  * ============================================================================
  * RUNBOOK — per-asset backfill
  * ============================================================================
  *
  * You'll need:
- *   - The internal RWA asset ID from `daily_rwa_data.id`. To find it for an
- *     asset whose chart already shows recent data, run:
- *       SELECT id, COUNT(*), MIN(timestamp), MAX(timestamp)
- *       FROM daily_rwa_data
- *       WHERE aggregatemcap > 0 AND mcap LIKE '%solana%'
- *       GROUP BY id ORDER BY MAX(timestamp) DESC;
- *     Cross-reference with the asset's expected current mcap.
- *   - The Solana mint address.
- *   - The token's decimals (Solscan → token program section).
+ *   - The internal RWA asset ID from `daily_rwa_data.id`.
+ *   - The Stellar `{CODE}-{ISSUER}` pair (e.g. BRZ-GABMA6FPH...IEO2).
  *
  * STEP 1 — Pull supply history from Dune to CSV.
  *
- *   DUNE_API_KEY=xxx ts-node defi/src/rwa/cli/fetchSolanaSupplyFromDune.ts \
+ *   DUNE_API_KEY=xxx ts-node defi/src/rwa/cli/fetchStellarSupplyFromDune.ts \
  *     --query-id <YOUR_DUNE_QUERY_ID> \
- *     --mint <MINT_ADDRESS> \
- *     --decimals <DECIMALS> \
- *     --out ./<asset>.csv
+ *     --asset BRZ-GABMA6FPH3OJXNTGWO7PROF7I5WPQUZOB4BLTBTP4FK6QV7HWISLIEO2 \
+ *     --out ./brz-stellar.csv
  *
- *   Sanity check: the last row's `supply` should match Solscan's current supply
- *   for that mint, within ~1-3%. If it's wildly off, re-check the decimals or
- *   look for unusual Token-2022 extensions (most are fine, but a custom mint
- *   program may not emit standard `mint`/`burn` instructions).
+ *   Sanity check: the last row's `supply` should match the live Horizon value
+ *   (defi/l2/utils.ts:getStellarSupplies divided by 1e7) within ~1-3%. If it's
+ *   wildly off, see the "Sanity check before you trust the curve" note above.
  *
  * STEP 2 — Inspect the CSV for treasury-cap noise.
  *
- *   `head -50 ./<asset>.csv`. Many RWAs have a long flat section at the start
- *   where the issuer minted a treasury cap that didn't actually circulate, then
- *   later burned it down to real circulating supply (you'll see one large drop
- *   followed by organic growth). Pre-cap-burn is not real economic supply and
- *   should be excluded via --from-date set to the post-burn day. Skip this if
- *   the CSV starts cleanly.
+ *   `head -50 ./brz-stellar.csv`. Many anchored assets start with a treasury
+ *   mint that wasn't really in circulation. Use --from-date to skip those rows.
  *
  * STEP 3 — Dry-run the backfill and open the HTML preview.
  *
- *   ts-node defi/src/rwa/cli/backfillSolanaRwaMcap.ts \
+ *   ts-node defi/src/rwa/cli/backfillStellarRwaMcap.ts \
  *     --asset-id <ID> \
- *     --mint <MINT_ADDRESS> \
- *     --csv ./<asset>.csv \
- *     --from-date YYYY-MM-DD \   # optional, see step 2
+ *     --asset BRZ-GABMA6FPH3OJXNTGWO7PROF7I5WPQUZOB4BLTBTP4FK6QV7HWISLIEO2 \
+ *     --csv ./brz-stellar.csv \
+ *     --from-date YYYY-MM-DD \   # optional
  *     --dry-run \
- *     --out ./preview-<asset>.html
+ *     --out ./preview-brz-stellar.html
  *
- *   open ./preview-<asset>.html
+ *   open ./preview-brz-stellar.html
  *
- *   The HTML shows red (current prod /chart/{id}) vs green (projected after
- *   backfill ships). Acceptance criteria:
- *     - Red and green overlap exactly from the live-cron start date onwards.
- *     - Green fills in the pre-cutover region cleanly with no spike artifacts.
- *     - Last-point mcap (after) matches what you'd expect from RWA.xyz
- *       within a few percent.
- *   If green diverges from red in the post-cutover region, STOP — the
- *   simulation has miscomputed multi-chain aggregates and the writes will
- *   damage live data.
+ *   Same accept/reject criteria as the Solana backfill: red and green MUST
+ *   overlap exactly from the live-cron start date onwards. Divergence in
+ *   the post-cutover region means the simulation is wrong; do NOT ship.
  *
  * STEP 4 — Commit.
  *
- *   ts-node defi/src/rwa/cli/backfillSolanaRwaMcap.ts \
- *     --asset-id <ID> --mint <MINT> --csv ./<asset>.csv --from-date YYYY-MM-DD
- *
- *   Writes 80-200 rows in <1 minute. Touches `daily_rwa_data` and
- *   `backup_rwa_data` (skips `hourly_rwa_data` — old hourly rows are deleted by
- *   the prod cron anyway).
+ *   ts-node defi/src/rwa/cli/backfillStellarRwaMcap.ts \
+ *     --asset-id <ID> --asset BRZ-GABMA... --csv ./brz-stellar.csv --from-date YYYY-MM-DD
  *
  * STEP 5 — Verify.
  *
- *   Wait for the next prod chart-cache rebuild (runs every cron tick), then
- *   reload defillama.com/rwa/asset/<slug>. The chart should now show a
- *   continuous mcap curve through the previously-empty range.
+ *   Wait for the next prod chart-cache rebuild, reload
+ *   defillama.com/rwa/asset/<slug>. The chart should now show a continuous
+ *   mcap curve through the previously-empty Stellar range.
  *
  * ============================================================================
  * Flags reference
  * ============================================================================
- *   --asset-id    REQUIRED. Internal RWA ID from daily_rwa_data.id.
- *   --mint        REQUIRED. Solana mint address.
- *   --csv         REQUIRED. Dune CSV path with `day,supply` columns.
- *   --from-date   YYYY-MM-DD. Skip CSV rows before this date (treasury cap).
- *   --flat-nav    Use a flat NAV (e.g. 1.00) instead of coins API. Useful when
- *                 the coins API has no historical price for the asset.
+ *   --asset-id      REQUIRED. Internal RWA ID from daily_rwa_data.id.
+ *   --asset         REQUIRED (or --asset-code + --asset-issuer).
+ *                   Stellar asset in CODE-ISSUER form, e.g. BRZ-GABMA6FPH...
+ *   --asset-code    Alternative to --asset: the asset code alone (e.g. "BRZ").
+ *   --asset-issuer  Alternative to --asset: the issuer G-address.
+ *   --csv           REQUIRED. Dune CSV path with `day,supply` columns.
+ *   --from-date     YYYY-MM-DD. Skip CSV rows before this date.
+ *   --flat-nav      Use a flat NAV instead of coins API. Useful when the coins
+ *                   API has no historical price for the asset.
  *   --fallback-nearest-price
- *                 When the coins API has no price for a given day but DOES for
- *                 some other day in range, fall back to the chronologically
- *                 nearest known price. Useful for stablecoin-like RWAs where
- *                 the coins API only started indexing recently. Safer than a
- *                 hand-picked --flat-nav because it uses real data where it
- *                 exists. Off by default.
+ *                   When the coins API has no price for a given day but DOES
+ *                   for some other day in range, fall back to the chronologically
+ *                   nearest known price for the missing day. Useful for
+ *                   stablecoin-like RWAs (BENJI, USDC, etc.) where the coins API
+ *                   only started indexing recently — extends today's $1-ish
+ *                   price backward to fill the historical gap. Safer than a
+ *                   hand-picked --flat-nav because it uses real coins-API data
+ *                   where it exists. Off by default.
  *   --fill-missing-chains
- *                 When a candidate day has NO existing daily_rwa_data row,
- *                 carry forward the nearest prior existing row's chain maps
- *                 as the baseline before merging in the new chain's leg.
- *                 Prevents sawtooth charts caused by gap days where the new
- *                 chain is the only value present. Off by default.
- *   --dry-run     No writes. Prints summary, writes HTML preview to --out.
- *   --no-preview  Skip HTML preview during dry-run.
- *   --out         HTML preview path (default ./preview-<asset-id>.html).
- *
- * ============================================================================
- * Worked example — ONyc (id 175, mint 5Y8NV...2tcxp5, 9 decimals)
- * ============================================================================
- *
- *   DUNE_API_KEY=xxx ts-node defi/src/rwa/cli/fetchSolanaSupplyFromDune.ts \
- *     --query-id 7435636 \
- *     --mint 5Y8NV33Vv7WbnLfq3zBcKSdYPrk7g2KoiQoe7M2tcxp5 \
- *     --decimals 9 \
- *     --out ./onyc.csv
- *
- *   ts-node defi/src/rwa/cli/backfillSolanaRwaMcap.ts \
- *     --asset-id 175 \
- *     --mint 5Y8NV33Vv7WbnLfq3zBcKSdYPrk7g2KoiQoe7M2tcxp5 \
- *     --csv ./onyc.csv \
- *     --from-date 2025-11-29 \
- *     --dry-run --out ./preview-onyc.html
- *   open ./preview-onyc.html
- *
- *   # If preview looks correct:
- *   ts-node defi/src/rwa/cli/backfillSolanaRwaMcap.ts \
- *     --asset-id 175 \
- *     --mint 5Y8NV33Vv7WbnLfq3zBcKSdYPrk7g2KoiQoe7M2tcxp5 \
- *     --csv ./onyc.csv \
- *     --from-date 2025-11-29
+ *                   When a candidate day has NO existing daily_rwa_data row,
+ *                   carry forward the nearest prior existing row's chain maps
+ *                   as the baseline before merging in the new chain's leg. Use
+ *                   this when historical RWA rows are sparse (gap days where
+ *                   the cron didn't write). Without this, missing days get
+ *                   only the new chain's value and the chart sawteeths between
+ *                   "full row" and "new-chain-only row" by exactly the size
+ *                   of the other chains. Off by default.
+ *   --dry-run       No writes. Prints summary, writes HTML preview to --out.
+ *   --no-preview    Skip HTML preview during dry-run.
+ *   --no-forward-fill  Treat the CSV as event-only (don't carry supply forward
+ *                   through days with no payment activity). Off by default.
+ *   --out           HTML preview path (default ./preview-<asset-id>.html).
  */
 
 import * as fs from "fs";
@@ -196,7 +178,7 @@ import {
 import { smoothHistoricalData, toFiniteNumberOrZero, HistoricalRecord } from "../utils";
 import { trimLeadingZeros } from "../cron";
 
-const CHAIN = "solana";
+const CHAIN = "stellar";
 
 function arg(name: string): string | null {
   const i = process.argv.indexOf(name);
@@ -204,7 +186,16 @@ function arg(name: string): string | null {
 }
 
 const ASSET_ID = arg("--asset-id");
-const MINT = arg("--mint");
+let ASSET_CODE = arg("--asset-code");
+let ASSET_ISSUER = arg("--asset-issuer");
+const ASSET = arg("--asset");
+if (ASSET && (!ASSET_CODE || !ASSET_ISSUER)) {
+  const dashIdx = ASSET.lastIndexOf("-");
+  if (dashIdx > 0) {
+    ASSET_CODE = ASSET_CODE ?? ASSET.substring(0, dashIdx);
+    ASSET_ISSUER = ASSET_ISSUER ?? ASSET.substring(dashIdx + 1);
+  }
+}
 const CSV = arg("--csv");
 const FROM_DATE = arg("--from-date");
 const FLAT_NAV_RAW = arg("--flat-nav");
@@ -217,14 +208,13 @@ const DRY_RUN = process.argv.includes("--dry-run");
 const NO_PREVIEW = process.argv.includes("--no-preview");
 const FALLBACK_NEAREST_PRICE = process.argv.includes("--fallback-nearest-price");
 const FILL_MISSING_CHAINS = process.argv.includes("--fill-missing-chains");
-const OUT = arg("--out") ?? `./preview-${ASSET_ID ?? "rwa"}.html`;
+const OUT = arg("--out") ?? `./preview-${ASSET_ID ?? "rwa"}-stellar.html`;
 
-if (!ASSET_ID || !MINT || !CSV) {
-  console.error("ERROR: --asset-id, --mint, --csv are all required");
+if (!ASSET_ID || !ASSET_CODE || !ASSET_ISSUER || !CSV) {
+  console.error("ERROR: --asset-id, (--asset OR --asset-code+--asset-issuer), --csv are all required");
   process.exit(1);
 }
 
-// Reject malformed/out-of-range YYYY-MM-DD: Date.UTC silently rolls e.g. Feb 31 → Mar 3.
 function parseIsoDayUtc(day: string): number | null {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(day)) return null;
   const [y, m, d] = day.split("-").map(Number);
@@ -238,7 +228,9 @@ if (FROM_DATE && FROM_TS == null) {
   process.exit(1);
 }
 
-const COIN_KEY = `solana:${MINT}`;
+// Coins API key format for Stellar mirrors what showRwaMcapBreakdown queries
+// (and what the live fetchSupplies returns under): `stellar:{CODE}-{ISSUER}`.
+const COIN_KEY = `stellar:${ASSET_CODE}-${ASSET_ISSUER}`;
 
 interface DaySupply { dayTs: number; supply: number }
 
@@ -260,12 +252,9 @@ function parseCsv(filePath: string): DaySupply[] {
   });
 }
 
-// Dune's tokens_solana.transfers query returns one row per day with a mint/burn
-// event. Days where supply was unchanged are silently absent. Expand to a dense
-// one-row-per-day series by carrying the most recent supply forward, from the
-// first event day through today (UTC). This is the correct interpretation —
-// "no event today" means "supply same as yesterday", not "supply = 0".
-// Disable with --no-forward-fill if you want raw event-day-only behaviour.
+// Dune's stellar.history_operations query returns one row per day with payment
+// activity. Days where supply was unchanged are silently absent. Expand to a
+// dense one-row-per-day series by carrying the most recent supply forward.
 function expandForwardFill(sparse: DaySupply[]): DaySupply[] {
   if (sparse.length === 0) return [];
   const sorted = [...sparse].sort((a, b) => a.dayTs - b.dayTs);
@@ -282,11 +271,6 @@ function expandForwardFill(sparse: DaySupply[]): DaySupply[] {
   return out;
 }
 
-// Fetch prices in bulk via the coins.llama.fi /chart endpoint (returns up to
-// MAX_SPAN daily prices per request). Massively cheaper on the rate limiter
-// than one-coin-one-timestamp /prices calls, which is what refillParallel.ts
-// also does. Falls back to whatever's resolvable — un-resolved timestamps
-// just become "supply-only" writes downstream.
 async function getPriceMap(timestamps: number[]): Promise<Map<number, number>> {
   const out = new Map<number, number>();
   if (FLAT_NAV != null) {
@@ -300,8 +284,6 @@ async function getPriceMap(timestamps: number[]): Promise<Map<number, number>> {
   const totalSpanDays = Math.ceil((maxTs - minTs) / 86400) + 1;
   const MAX_SPAN = 500;
 
-  // chart endpoint indexes by approximate ts, not strict UTC day starts — pre-build
-  // a UTC-day lookup so we can map response prices to requested timestamps.
   const dayToReqTs = new Map<string, number>();
   for (const t of timestamps) {
     const d = new Date(t * 1000).toISOString().slice(0, 10);
@@ -331,15 +313,17 @@ async function getPriceMap(timestamps: number[]): Promise<Map<number, number>> {
   }
 
   // Optional fallback: for timestamps where the coins API returned no price,
-  // use the chronologically-nearest known price. Only kicks in if the user
-  // explicitly opts in via --fallback-nearest-price, since for volatile assets
-  // this could distort mcap badly. For stablecoin-like RWAs it cleanly extends
-  // a recent price back through supply-known but price-missing days.
+  // use the chronologically-nearest known price (forward and backward search,
+  // tie goes to the future). Only kicks in if the user explicitly opts in via
+  // --fallback-nearest-price, since for volatile assets this could distort
+  // mcap badly. For stablecoin-like RWAs (BENJI, etc.) it cleanly extends the
+  // recent-era price back through the supply-known but price-missing days.
   if (FALLBACK_NEAREST_PRICE && out.size > 0 && out.size < timestamps.length) {
     const resolvedTs = [...out.keys()].sort((a, b) => a - b);
     let filled = 0;
     for (const t of timestamps) {
       if (out.has(t)) continue;
+      // Binary search would be nicer but timestamps.length is small (<10k).
       let bestTs = resolvedTs[0];
       let bestDist = Math.abs(t - bestTs);
       for (const rt of resolvedTs) {
@@ -361,7 +345,6 @@ async function getPriceMap(timestamps: number[]): Promise<Map<number, number>> {
   return out;
 }
 
-// Treat null, undefined, 0, "0", and any non-finite as "missing".
 function isMissing(v: any): boolean {
   if (v == null) return true;
   const n = Number(v);
@@ -380,15 +363,12 @@ function sumChainValues(chainMap: { [chain: string]: any } | null | undefined): 
 
 interface PlannedWrite {
   dayTs: number;
-  // What we will write (full chain maps, with solana merged in)
   newMcap: { [chain: string]: string };
   newActiveMcap: { [chain: string]: string };
   newTotalSupply: { [chain: string]: string };
   newAggregateMcap: number;
   newAggregateActiveMcap: number;
-  // What changed (for logging)
   changed: { mcap: boolean; activeMcap: boolean; totalSupply: boolean };
-  // For logging
   csvSupply: number;
   resolvedPrice: number | null;
 }
@@ -409,6 +389,7 @@ async function plan(
     : [];
   let carriedForwardCount = 0;
   function findPriorExistingRow(targetTs: number): any | null {
+    // Binary search for the largest ts <= targetTs.
     let lo = 0, hi = existingTsSorted.length - 1, best = -1;
     while (lo <= hi) {
       const mid = (lo + hi) >>> 1;
@@ -424,11 +405,16 @@ async function plan(
     if (!row && FILL_MISSING_CHAINS) {
       const prior = findPriorExistingRow(dayTs);
       if (prior) {
+        // Build a synthetic baseline from the prior row's chain maps. Treat as
+        // existing for the purpose of preserving other chains, but DON'T mark
+        // any of these as "already-populated" — the isMissing check still
+        // looks at CHAIN ("stellar"), which is what we're filling in.
         row = {
           mcap: { ...(prior.mcap ?? {}) },
           activemcap: { ...(prior.activemcap ?? {}) },
           totalsupply: { ...(prior.totalsupply ?? {}) },
         };
+        // Don't carry forward a stale stellar value; this script will overwrite it.
         delete row.mcap[CHAIN];
         delete row.activemcap[CHAIN];
         delete row.totalsupply[CHAIN];
@@ -446,42 +432,39 @@ async function plan(
     if (!mcapMissing && !activeMcapMissing && !supplyMissing) continue;
 
     const price = priceMap.get(dayTs);
-    let newSolanaMcap: number | null = null;
+    let newStellarMcap: number | null = null;
     if (mcapMissing) {
       if (!price || csvSupply <= 0) {
-        // Can't compute mcap. May still be able to fill supply only.
+        // Can't compute mcap. May still fill supply only.
       } else {
-        newSolanaMcap = csvSupply * price;
+        newStellarMcap = csvSupply * price;
       }
     }
 
-    // Final per-chain values: keep existing if non-zero, else fill with new (when computable).
-    const finalSolanaMcap = !mcapMissing
+    const finalStellarMcap = !mcapMissing
       ? Number(existingMcap[CHAIN])
-      : (newSolanaMcap ?? 0);
-    const finalSolanaActiveMcap = !activeMcapMissing
+      : (newStellarMcap ?? 0);
+    const finalStellarActiveMcap = !activeMcapMissing
       ? Number(existingActiveMcap[CHAIN])
-      : finalSolanaMcap; // activeMcap = onchainMcap when missing
-    const finalSolanaSupply = !supplyMissing
+      : finalStellarMcap;
+    const finalStellarSupply = !supplyMissing
       ? Number(existingSupply[CHAIN])
       : (csvSupply > 0 ? csvSupply : 0);
 
-    // Did anything actually change?
-    const mcapChanged = mcapMissing && newSolanaMcap != null;
-    const activeMcapChanged = activeMcapMissing && finalSolanaActiveMcap > 0;
+    const mcapChanged = mcapMissing && newStellarMcap != null;
+    const activeMcapChanged = activeMcapMissing && finalStellarActiveMcap > 0;
     const supplyChanged = supplyMissing && csvSupply > 0;
     if (!mcapChanged && !activeMcapChanged && !supplyChanged) {
       skipped++;
       continue;
     }
 
-    // Build new chain maps. Spread existing first to preserve other chains.
     const newMcap = { ...existingMcap };
     const newActiveMcap = { ...existingActiveMcap };
     const newTotalSupply = { ...existingSupply };
-    if (mcapChanged) newMcap[CHAIN] = String(finalSolanaMcap);
-    if (activeMcapChanged) newActiveMcap[CHAIN] = String(finalSolanaActiveMcap);
-    if (supplyChanged) newTotalSupply[CHAIN] = String(finalSolanaSupply);
+    if (mcapChanged) newMcap[CHAIN] = String(finalStellarMcap);
+    if (activeMcapChanged) newActiveMcap[CHAIN] = String(finalStellarActiveMcap);
+    if (supplyChanged) newTotalSupply[CHAIN] = String(finalStellarSupply);
 
     writes.push({
       dayTs,
@@ -503,7 +486,6 @@ async function plan(
 }
 
 async function commitWrites(writes: PlannedWrite[]) {
-  // Bucket by which columns changed → different updateOnDuplicate lists.
   const onlyTotalSupply: PlannedWrite[] = [];
   const fullSet: PlannedWrite[] = [];
   for (const w of writes) {
@@ -516,8 +498,6 @@ async function commitWrites(writes: PlannedWrite[]) {
 
   const now = new Date();
 
-  // Path A: full set → write mcap + activemcap + totalsupply + aggregates.
-  // updateOnDuplicate intentionally EXCLUDES defiactivetvl/aggregatedefiactivetvl/timestamp_actual.
   if (fullSet.length > 0) {
     const dailyRows = fullSet.map((w) => ({
       timestamp: w.dayTs,
@@ -537,13 +517,12 @@ async function commitWrites(writes: PlannedWrite[]) {
     await BACKUP_RWA_DATA.bulkCreate(backupRows as any[], { updateOnDuplicate: upd });
   }
 
-  // Path B: only totalsupply → narrow updateOnDuplicate so we don't touch mcap.
   if (onlyTotalSupply.length > 0) {
     const dailyRows = onlyTotalSupply.map((w) => ({
       timestamp: w.dayTs,
       timestamp_actual: w.dayTs,
       id: ASSET_ID!,
-      mcap: JSON.stringify(w.newMcap),         // unchanged values, but bulkCreate needs all PK + included cols
+      mcap: JSON.stringify(w.newMcap),
       activemcap: JSON.stringify(w.newActiveMcap),
       totalsupply: JSON.stringify(w.newTotalSupply),
       aggregatemcap: w.newAggregateMcap,
@@ -609,7 +588,7 @@ function renderHtml(
 
   return `<!doctype html>
 <html lang="en"><head>
-<meta charset="utf-8"><title>RWA backfill preview — id ${assetId}</title>
+<meta charset="utf-8"><title>RWA Stellar backfill preview — id ${assetId}</title>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3.0.0/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
 <style>
@@ -625,8 +604,8 @@ function renderHtml(
   .legend-note { font-size: 12px; color: #8b949e; margin-top: 12px; }
   code { background: #21262d; padding: 2px 6px; border-radius: 3px; font-size: 12px; }
 </style></head><body>
-<h1>RWA backfill preview — id <code>${assetId}</code></h1>
-<div class="sub">Same transform as prod <code>/chart/${assetId}</code> (smoothHistoricalData + trimLeadingZeros). Read-only.</div>
+<h1>RWA Stellar backfill preview — id <code>${assetId}</code></h1>
+<div class="sub">Asset <code>${ASSET_CODE}-${ASSET_ISSUER}</code>. Same transform as prod <code>/chart/${assetId}</code> (smoothHistoricalData + trimLeadingZeros). Read-only.</div>
 <div class="stats">
   <div class="stat"><div class="stat-label">Would write</div><div class="stat-value">${fullCount} full + ${supplyOnlyCount} supply-only</div></div>
   <div class="stat"><div class="stat-label">Skipped</div><div class="stat-value">${skipped}</div></div>
@@ -673,7 +652,7 @@ function renderHtml(
 
 async function main() {
   console.log(
-    `[backfill] DRY_RUN=${DRY_RUN} ASSET_ID=${ASSET_ID} MINT=${MINT} CSV=${CSV} ` +
+    `[backfill] DRY_RUN=${DRY_RUN} ASSET_ID=${ASSET_ID} ASSET=${ASSET_CODE}-${ASSET_ISSUER} CSV=${CSV} ` +
     `FROM_DATE=${FROM_DATE ?? "(none)"} FLAT_NAV=${FLAT_NAV ?? "(coins API)"}`
   );
   await initPG();
@@ -693,7 +672,6 @@ async function main() {
   const candidates = series.filter((d) => FROM_TS == null || d.dayTs >= FROM_TS);
   console.log(`[backfill] csv rows: ${series.length}; candidates after --from-date: ${candidates.length}`);
 
-  // We only need prices for days that actually need a new mcap.
   const needsPriceFetch = candidates.filter((d) => {
     const row = chainsByTs.get(d.dayTs);
     return isMissing(row?.mcap?.[CHAIN]);
