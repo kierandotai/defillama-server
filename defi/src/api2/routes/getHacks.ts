@@ -1,5 +1,12 @@
 import protocols from "../../protocols/data";
 import { getAllAirtableRecords } from "../../utils/airtable";
+import {
+  cleanString,
+  normalizeAmount,
+  normalizeChain,
+  normalizeTechnique,
+  parseHackDate,
+} from "../utils/normalizeHacks";
 
 export async function getHacksInternal() {
   let allRecords = await getAllAirtableRecords("appNED1rpGDbQDjEX/Hacks");
@@ -8,21 +15,25 @@ export async function getHacksInternal() {
     .map((r) => {
       const defillamaId = r.fields["DefiLlama Id"] ?? null;
       const protocol = defillamaId ? protocols.find((p) => p.id == defillamaId) : null;
-      
+      const date = parseHackDate(r.fields["Date"]);
+
       return {
-        date: new Date(r.fields["Date"]).getTime() / 1000,
-        name: protocol?.name ?? r.fields["Name"],
-        classification: r.fields["Classification"] ?? null,
-        technique: r.fields["Technique"] ?? null,
-        amount: r.fields["Funds Lost"] ?? null,
-        chain: r.fields["Chain"] ?? null,
+        date,
+        name: protocol?.name ?? cleanString(r.fields["Name"]) ?? r.fields["Name"],
+        classification: cleanString(r.fields["Classification"]),
+        technique: normalizeTechnique(r.fields["Technique"]),
+        amount: normalizeAmount(r.fields["Funds Lost"]),
+        chain: normalizeChain(r.fields["Chain"]),
         bridgeHack: r.fields["Bridge / Multichain Application"] ?? false,
-        targetType: r.fields["Target Type"] ?? null,
+        targetType: cleanString(r.fields["Target Type"]),
         source: "",
-        returnedFunds: r.fields["Refunded funds to users"] ?? null,
+        returnedFunds: normalizeAmount(r.fields["Refunded funds to users"]),
         defillamaId,
         ...(protocol?.parentProtocol ? { parentProtocolId: protocol.parentProtocol } : {}),
-        language: r.fields["Language"] ?? null,
+        language: cleanString(r.fields["Language"]),
       };
-    });
+    })
+    // Drop records with no parseable date — they cannot be charted or sorted
+    // and previously surfaced as `NaN` in the API response.
+    .filter((h) => h.date !== null);
 }
