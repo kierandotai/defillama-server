@@ -16,7 +16,13 @@
 //   - Records with invalid timestamps.
 
 import axios from "axios";
-import { TECHNIQUE_ALIASES } from "../utils/normalizeHacks";
+import {
+  TECHNIQUE_ALIASES,
+  cleanString,
+  normalizeAmount,
+  normalizeChain,
+  parseHackDate,
+} from "../utils/normalizeHacks";
 
 type Hack = {
   name: string;
@@ -236,15 +242,51 @@ function printJsonReport(hacks: Hack[]) {
   console.log(JSON.stringify(out, null, 2));
 }
 
+// Coerce each row from the live endpoint into the expected Hack shape so that
+// a single malformed record (e.g. a numeric technique) cannot crash the audit
+// downstream — see findNearDuplicateTechniques which calls toLowerCase().
+function coerceHack(raw: unknown): Hack | null {
+  if (raw === null || typeof raw !== "object") return null;
+  const r = raw as Record<string, unknown>;
+  const defillamaId =
+    typeof r.defillamaId === "number" || typeof r.defillamaId === "string"
+      ? r.defillamaId
+      : null;
+  return {
+    name: cleanString(r.name) ?? "",
+    date: parseHackDate(r.date),
+    amount: normalizeAmount(r.amount),
+    chain: normalizeChain(r.chain),
+    technique: cleanString(r.technique),
+    classification: cleanString(r.classification),
+    source: cleanString(r.source),
+    returnedFunds: normalizeAmount(r.returnedFunds),
+    defillamaId,
+  };
+}
+
 async function main() {
-  const { data } = await axios.get<Hack[]>(HACKS_URL);
+  const { data } = await axios.get<unknown>(HACKS_URL);
   if (!Array.isArray(data)) {
     throw new Error(`Unexpected response shape from ${HACKS_URL}`);
   }
+  const hacks: Hack[] = [];
+  let dropped = 0;
+  for (const raw of data) {
+    const hack = coerceHack(raw);
+    if (hack === null) {
+      dropped += 1;
+      continue;
+    }
+    hacks.push(hack);
+  }
+  if (dropped > 0) {
+    console.error(`auditHacks: dropped ${dropped} malformed record(s) from ${HACKS_URL}`);
+  }
   if (process.argv.includes("--json")) {
-    printJsonReport(data);
+    printJsonReport(hacks);
   } else {
-    printTextReport(data);
+    printTextReport(hacks);
   }
 }
 
